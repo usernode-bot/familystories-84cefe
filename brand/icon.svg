@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- FamilyStories app icon: vintage microphone with a house-shaped head.
+       Cream #FFFEEA mark on black #000000 tile. The platform rounds the
+       tile corners itself, so the canvas is a full square. -->
+  <rect width="1024" height="1024" fill="#000000"/>
+  <g transform="translate(0,-30)">
+    <!-- house head (roof + body as one shape) -->
+    <polygon points="512,212 688,364 688,576 336,576 336,364"
+      fill="#FFFEEA" stroke="#FFFEEA" stroke-width="32" stroke-linejoin="round"/>
+    <!-- round window in the gable -->
+    <circle cx="512" cy="318" r="26" fill="#000000"/>
+    <!-- grille slats -->
+    <rect x="400" y="392" width="224" height="40" rx="20" fill="#000000"/>
+    <rect x="400" y="472" width="224" height="40" rx="20" fill="#000000"/>
+    <!-- yoke cradle -->
+    <path d="M232 440 V520 A280 280 0 0 0 792 520 V440" fill="none"
+      stroke="#FFFEEA" stroke-width="56" stroke-linecap="round"/>
+    <!-- stem and base -->
+    <path d="M512 800 V864 M392 864 H632" fill="none"
+      stroke="#FFFEEA" stroke-width="56" stroke-linecap="round"/>
+  </g>
+</svg>

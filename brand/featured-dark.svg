@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000">
+  <!-- FamilyStories featured illustration, dark version:
+       cream mark on black, yellow sound waves. -->
+  <rect width="1600" height="1000" fill="#000000"/>
+  <g transform="translate(364.8,64.8) scale(0.85)">
+    <g transform="translate(0,-30)">
+      <!-- house head (roof + body as one shape) -->
+      <polygon points="512,212 688,364 688,576 336,576 336,364"
+        fill="#FFFEEA" stroke="#FFFEEA" stroke-width="32" stroke-linejoin="round"/>
+      <!-- round window in the gable -->
+      <circle cx="512" cy="318" r="26" fill="#000000"/>
+      <!-- grille slats -->
+      <rect x="400" y="392" width="224" height="40" rx="20" fill="#000000"/>
+      <rect x="400" y="472" width="224" height="40" rx="20" fill="#000000"/>
+      <!-- yoke cradle -->
+      <path d="M232 440 V520 A280 280 0 0 0 792 520 V440" fill="none"
+        stroke="#FFFEEA" stroke-width="56" stroke-linecap="round"/>
+      <!-- stem and base -->
+      <path d="M512 800 V864 M392 864 H632" fill="none"
+        stroke="#FFFEEA" stroke-width="56" stroke-linecap="round"/>
+      <!-- sound waves, right -->
+      <path d="M876 175 A420 420 0 0 1 876 595" fill="none"
+        stroke="#FFEE6F" stroke-width="40" stroke-linecap="round"/>
+      <path d="M936 140 A490 490 0 0 1 936 630" fill="none"
+        stroke="#FFEE6F" stroke-width="40" stroke-linecap="round"/>
+      <!-- sound waves, left -->
+      <path d="M148 175 A420 420 0 0 0 148 595" fill="none"
+        stroke="#FFEE6F" stroke-width="40" stroke-linecap="round"/>
+      <path d="M88 140 A490 490 0 0 0 88 630" fill="none"
+        stroke="#FFEE6F" stroke-width="40" stroke-linecap="round"/>
+    </g>
+  </g>
+</svg>
