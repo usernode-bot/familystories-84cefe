@@ -8,5 +8,25 @@
   "visibility": {
     "build": "public",
     "view": "public"
-  }
+  },
+  "tests": [
+    {
+      "id": "timeline.default",
+      "name": "Family timeline shows memories",
+      "path": "/",
+      "expectSelector": "[data-memory]",
+      "visual": true,
+      "impact": [
+        "public/index.html",
+        "server.js",
+        "styles/tailwind-input.css",
+        "tailwind.config.js"
+      ]
+    },
+    {
+      "name": "Timeline offers Add a memory",
+      "path": "/",
+      "expectText": "Add a memory"
+    }
+  ]
 }

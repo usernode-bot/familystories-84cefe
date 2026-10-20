@@ -97,24 +97,25 @@ tables you've marked private), etc.
 
 ## About FamilyStories
 
-Turn family voices into stories and a family tree
-
-_(add a sentence or two more of product context here so Claude Code has a
-shared understanding of what this app is for)_
+FamilyStories is a shared family timeline: relatives add memories with a
+title, a story and the date the moment happened, and everyone reads them
+together, oldest first, grouped by year. One timeline serves the whole
+family.
 
 ## Design
 
 This app's look. The first real version fills in the blanks; every later
 change follows it, and updates it when a request changes the look on purpose.
 
-- **Palette:** _(name the accent, any second colour and the neutrals, e.g.
-  "accent: tomato red; second: basil green; neutrals: warm greys")_
-- **Signature element:** _(the one thing on screen drawn from this app's
-  subject, which no other app would have)_
+- **Palette:** accent: ink blue, the blue-black ink of an old family letter;
+  year markers: the brand's yellow; neutrals: the starter's warm greys.
+- **Signature element:** the timeline itself, a thin rule down the page with
+  an ink-blue dot for each memory and a yellow year tab riding on the line.
 - **Type scale:** `text-title`, `text-heading`, `text-body`, `text-small`
   _(change their sizes in `tailwind.config.js` if you must, not their number)_
-- **One fixed look:** _(only for an app drawn as its own scene, such as a
-  game: which look, and why. Otherwise delete this line.)_
+- **Typefaces:** titles and stories use `font-serif` (the system serif) so
+  they read like written-down memories; dates, labels and buttons stay in the
+  plain system face.
 
 The kit is in `styles/tailwind-input.css`: colour tokens with a light and
 a dark value (named in `tailwind.config.js`), and a few components
@@ -139,6 +140,8 @@ Re-theme by changing the token values there, keeping every text pair at
 
 ## App-specific conventions
 
-_(optional — e.g. "all currency values stored as integer cents, not
-floats"; "the `posts` table is append-only"; "avoid adding new
-dependencies"; etc.)_
+- A memory's `happened_on` is a calendar day with no time zone. Always read
+  it as text (`to_char(happened_on, 'YYYY-MM-DD')`) so `pg` never turns it
+  into a JavaScript `Date` and shifts the day.
+- The `memories` table is `staging:private`; staging seeds three obviously
+  fake "Staging demo: …" rows and never real family memories.

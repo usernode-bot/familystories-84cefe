@@ -35,11 +35,13 @@
     --fg: 28 25 23;           /* text */
     --muted: 87 83 78;        /* secondary text */
     --line: 231 229 228;      /* borders, dividers, skeletons */
-    --accent: 15 118 110;     /* the one accent */
+    --accent: 30 64 175;      /* ink blue: the blue-black ink of an old letter */
     --on-accent: 255 255 255; /* text on the accent */
+    --marker: 255 238 111;    /* the brand's yellow: year tabs */
+    --on-marker: 28 25 23;    /* text on the year marker */
     --danger: 185 28 28;
     --on-danger: 255 255 255;
-    --focus: 13 148 136;      /* the keyboard focus ring */
+    --focus: 37 99 235;       /* the keyboard focus ring */
   }
   .dark {
     --ground: 12 10 9;
@@ -48,11 +50,13 @@
     --fg: 245 245 244;
     --muted: 168 162 158;
     --line: 68 64 60;
-    --accent: 45 212 191;
-    --on-accent: 4 47 46;
+    --accent: 147 197 253;
+    --on-accent: 23 37 84;
+    --marker: 250 204 21;
+    --on-marker: 28 25 23;
     --danger: 248 113 113;
     --on-danger: 69 10 10;
-    --focus: 94 234 212;
+    --focus: 147 197 253;
   }
   /* el.hidden = true hides an element even when a class gives it a display
      (flex, the components below). */
@@ -124,5 +128,53 @@
   .state-empty,
   .state-error {
     @apply flex flex-col items-center gap-2 px-4 py-8 text-center;
+  }
+
+  /* The family timeline: a thin line down the page, a yellow year tab on it,
+     and an ink-blue dot for each memory. */
+  .timeline {
+    @apply ml-2 list-none border-l-2 border-line p-0;
+  }
+  .timeline-year {
+    @apply pb-7 pl-6;
+  }
+  .timeline-year:last-child {
+    @apply pb-0;
+  }
+  .year-tab {
+    @apply -ml-10 inline-block rounded-md bg-marker px-2 py-0.5 text-small font-semibold text-on-marker;
+  }
+  .memories {
+    @apply mt-3 flex list-none flex-col gap-5 p-0;
+  }
+  .memory {
+    @apply relative rounded-lg px-2 py-1;
+    margin-left: -0.5rem;
+    margin-right: -0.5rem;
+  }
+  .memory::before {
+    content: "";
+    position: absolute;
+    left: -1.45rem;
+    top: 0.5rem;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 9999px;
+    background-color: rgb(var(--accent));
+    border: 2px solid rgb(var(--ground));
+  }
+  .memory-story {
+    line-height: 1.7rem;
+  }
+  /* The short tint that shows where a newly added memory landed. */
+  .memory-added {
+    animation: memory-added 2.4s ease-out 1;
+  }
+  @keyframes memory-added {
+    0% { background-color: rgb(var(--accent) / 0.16); }
+    100% { background-color: rgb(var(--accent) / 0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .memory-added { animation: none; }
   }
 }

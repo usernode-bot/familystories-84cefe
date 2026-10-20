@@ -52,9 +52,16 @@ module.exports = {
         line: token('line'), // borders, dividers, skeletons
         accent: token('accent'), // the one accent: the primary action
         'on-accent': token('on-accent'), // text on the accent
+        marker: token('marker'), // the year tab on the timeline
+        'on-marker': token('on-marker'), // text on the year tab
         danger: token('danger'),
         'on-danger': token('on-danger'),
         focus: token('focus'), // the keyboard focus ring
+      },
+      // Titles and stories read like written-down memories; dates, labels and
+      // buttons stay in the plain system face.
+      fontFamily: {
+        serif: ['ui-serif', 'Georgia', 'Cambria', '"Times New Roman"', 'serif'],
       },
       // The type scale: four sizes, and nothing in between.
       fontSize: {

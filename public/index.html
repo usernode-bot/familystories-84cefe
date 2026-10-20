@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
+
   <script>
   // usernode-dev-console@1
   (function () {
@@ -64,7 +64,7 @@
   })();
   </script>
   <title>FamilyStories</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%237c3aed'/><circle cx='50' cy='50' r='18' fill='white'/></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%231e40af'/><circle cx='50' cy='50' r='18' fill='%23ffee6f'/></svg>">
   <!-- Tailwind, PRECOMPILED for this app (was cdn.tailwindcss.com's
        in-browser engine plus an inline tailwind.config here). The config
        moved to tailwind.config.js in the repo root; npm run build compiles
@@ -108,28 +108,376 @@
   </script>
 </head>
 <body class="min-h-screen bg-ground text-fg">
-  <!-- Built from the design kit in styles/tailwind-input.css: colour tokens
-       that are right in both looks, and components for buttons, fields,
-       lists, cards and data states. The real app keeps the kit; CLAUDE.md's
-       "## Design" says how. -->
-  <!-- (Named in prose on purpose: Tailwind compiles any class-name word in
-       these files, comments included, and the starter should ship only the
-       components its screen uses.) -->
+  <!-- One shared family timeline, built from the design kit in
+       styles/tailwind-input.css. Memories sit straight on the page; the add
+       form is the only card. -->
   <main class="mx-auto flex max-w-md flex-col gap-8 px-4 py-10">
 
-    <!-- usernode-starter-notice@1 — starter-template messaging. When building
-         the user's real app, replace this whole screen and delete this block,
-         both sentinel comments included. -->
-    <section class="card flex flex-col items-start gap-3">
-      <div class="flex h-20 w-20 items-center justify-center rounded-2xl border border-line bg-ground text-title">🎙️</div>
-      <span class="rounded-full bg-raised px-3 py-1 text-small font-medium text-muted">Starter template</span>
-      <h1 class="text-title">FamilyStories</h1>
-      <p class="text-body text-muted">Welcome to your new app! Everything on this screen is placeholder content that came with it.</p>
-      <p class="text-body text-muted">To change this app, ask Homeroom bot: tap the <strong class="font-semibold text-fg">Homeroom icon</strong>, then <strong class="font-semibold text-fg">Suggest an improvement</strong>. Describe what you'd like in plain English, and it will be turned into your real app.</p>
-    </section>
-    <!-- /usernode-starter-notice@1 -->
+    <header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h1 class="font-serif text-title">Family timeline</h1>
+        <p class="text-body text-muted">Memories in the order they happened</p>
+      </div>
+      <button id="open-form" type="button" class="btn-primary shrink-0 self-start whitespace-nowrap sm:self-auto" disabled>
+        Add a memory
+      </button>
+    </header>
 
-    <p class="text-center text-small text-muted">Built on Homeroom. This template screen disappears once you build your real app.</p>
+    <p id="status" class="text-small text-muted empty:hidden" role="status" aria-live="polite"></p>
+
+    <form id="memory-form" class="card flex flex-col gap-4" hidden>
+      <h2 class="font-serif text-heading">Add a memory</h2>
+
+      <p id="form-error" class="text-small text-danger" role="alert" hidden></p>
+
+      <!-- Kept at the top of the form, as iOS sheets do, so the save and
+           cancel actions stay visible while the phone keyboard is up. -->
+      <div class="flex flex-wrap gap-2">
+        <button id="save-memory" type="submit" class="btn-primary">Add memory</button>
+        <button id="cancel-form" type="button" class="btn-secondary">Cancel</button>
+      </div>
+
+      <label class="flex flex-col gap-1">
+        <span class="text-small font-medium">What happened</span>
+        <input class="field font-normal" name="title" type="text" maxlength="120" required
+               placeholder="e.g. Grandpa buys his first car">
+      </label>
+
+      <label class="flex flex-col gap-1">
+        <span class="text-small font-medium">When it happened</span>
+        <input class="field font-normal" name="happened_on" type="date" min="1800-01-01" required>
+      </label>
+
+      <label class="flex flex-col gap-1">
+        <span class="text-small font-medium">The story</span>
+        <textarea class="field font-normal" name="body" rows="4" maxlength="5000" required
+                  placeholder="e.g. Who was there, where it was, what people still say about it"></textarea>
+      </label>
+    </form>
+
+    <div id="loading" class="flex flex-col gap-8" role="status">
+      <span class="sr-only">Loading memories</span>
+      <div class="flex flex-col gap-2" aria-hidden="true">
+        <div class="skeleton h-3 w-24"></div>
+        <div class="skeleton h-6 w-3/4"></div>
+        <div class="skeleton h-4 w-full"></div>
+        <div class="skeleton h-4 w-5/6"></div>
+      </div>
+      <div class="flex flex-col gap-2" aria-hidden="true">
+        <div class="skeleton h-3 w-24"></div>
+        <div class="skeleton h-6 w-2/3"></div>
+        <div class="skeleton h-4 w-full"></div>
+        <div class="skeleton h-4 w-4/5"></div>
+      </div>
+      <div class="flex flex-col gap-2" aria-hidden="true">
+        <div class="skeleton h-3 w-24"></div>
+        <div class="skeleton h-6 w-3/4"></div>
+        <div class="skeleton h-4 w-full"></div>
+        <div class="skeleton h-4 w-5/6"></div>
+      </div>
+    </div>
+
+    <div id="empty" class="state-empty" hidden>
+      <h2 class="font-serif text-heading">No memories yet</h2>
+      <p class="text-body text-muted">Add the first one: a birthday, a move, a wedding. The timeline starts there.</p>
+      <button id="empty-add" type="button" class="btn-primary mt-2">Add a memory</button>
+    </div>
+
+    <div id="error" class="state-error" hidden>
+      <h2 class="font-serif text-heading">The timeline couldn't be loaded.</h2>
+      <p class="text-body text-muted">Nothing you added has been lost.</p>
+      <button id="retry" type="button" class="btn-secondary mt-2">Try again</button>
+    </div>
+
+    <ol id="timeline" class="timeline" hidden></ol>
   </main>
+
+  <script>
+  (function () {
+    'use strict';
+
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+
+    const els = {
+      openForm: document.getElementById('open-form'),
+      memoryForm: document.getElementById('memory-form'),
+      saveMemory: document.getElementById('save-memory'),
+      cancelForm: document.getElementById('cancel-form'),
+      formError: document.getElementById('form-error'),
+      title: document.querySelector('input[name="title"]'),
+      date: document.querySelector('input[name="happened_on"]'),
+      story: document.querySelector('textarea[name="body"]'),
+      status: document.getElementById('status'),
+      loading: document.getElementById('loading'),
+      empty: document.getElementById('empty'),
+      emptyAdd: document.getElementById('empty-add'),
+      error: document.getElementById('error'),
+      retry: document.getElementById('retry'),
+      timeline: document.getElementById('timeline'),
+    };
+
+    let memories = [];
+    let signedIn = null;
+    let loaded = false;
+    let failed = false;
+    let formOpen = false;
+    let saving = false;
+    let statusTimer = null;
+
+    function nowDate() {
+      try {
+        if (window.usernode && typeof window.usernode.now === 'function') {
+          const value = new Date(window.usernode.now());
+          if (!isNaN(value.getTime())) return value;
+        }
+      } catch (e) {}
+      return new Date();
+    }
+
+    function requestHeaders(extra) {
+      const out = Object.assign({}, extra || {});
+      if (token) out['x-usernode-token'] = token;
+      // Preview time, when the platform has set one. Production ignores it.
+      out['x-usernode-now'] = nowDate().toISOString();
+      return out;
+    }
+
+    function localDayString(date) {
+      const pad = (n) => String(n).padStart(2, '0');
+      return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate());
+    }
+
+    function formatDay(value) {
+      const parts = value.split('-').map(Number);
+      const date = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+      return new Intl.DateTimeFormat(undefined, {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'UTC',
+      }).format(date);
+    }
+
+    function updateVisibleState() {
+      const loading = !loaded && !failed;
+      const empty = loaded && memories.length === 0;
+
+      els.loading.hidden = !loading;
+      els.error.hidden = !failed;
+      els.empty.hidden = !empty;
+      els.timeline.hidden = !(loaded && memories.length > 0);
+      els.emptyAdd.hidden = formOpen;
+      els.openForm.hidden = formOpen || empty;
+      els.openForm.disabled = !loaded;
+    }
+
+    function render() {
+      els.timeline.replaceChildren();
+      let currentYear = null;
+      let yearList = null;
+
+      memories.forEach(function (memory) {
+        const year = memory.happened_on.slice(0, 4);
+        if (year !== currentYear) {
+          const yearItem = document.createElement('li');
+          yearItem.className = 'timeline-year';
+
+          const tab = document.createElement('span');
+          tab.className = 'year-tab';
+          tab.textContent = year;
+
+          yearList = document.createElement('ol');
+          yearList.className = 'memories';
+
+          yearItem.append(tab, yearList);
+          els.timeline.append(yearItem);
+          currentYear = year;
+        }
+
+        const item = document.createElement('li');
+        item.className = 'memory';
+        item.dataset.memory = '';
+        item.dataset.memoryId = String(memory.id);
+
+        const date = document.createElement('p');
+        date.className = 'text-small text-muted';
+        date.textContent = formatDay(memory.happened_on);
+
+        const title = document.createElement('h2');
+        title.className = 'font-serif text-heading';
+        title.textContent = memory.title;
+
+        const story = document.createElement('p');
+        story.className = 'memory-story font-serif whitespace-pre-line';
+        story.textContent = memory.body;
+
+        const by = document.createElement('p');
+        by.className = 'text-small text-muted';
+        by.textContent = 'Added by ' + memory.username;
+
+        item.append(date, title, story, by);
+        yearList.append(item);
+      });
+    }
+
+    function sortedCopy() {
+      return memories.slice().sort(function (a, b) {
+        if (a.happened_on !== b.happened_on) return a.happened_on < b.happened_on ? -1 : 1;
+        const aCreated = String(a.created_at);
+        const bCreated = String(b.created_at);
+        if (aCreated !== bCreated) return aCreated < bCreated ? -1 : 1;
+        const aId = String(a.id);
+        const bId = String(b.id);
+        if (aId.length !== bId.length) return aId.length - bId.length;
+        return aId < bId ? -1 : aId > bId ? 1 : 0;
+      });
+    }
+
+    function load() {
+      loaded = false;
+      failed = false;
+      updateVisibleState();
+
+      fetch('/api/memories', { headers: requestHeaders() })
+        .then(function (response) {
+          if (!response.ok) throw new Error('load_failed');
+          return response.json();
+        })
+        .then(function (data) {
+          memories = Array.isArray(data.memories) ? data.memories : [];
+          signedIn = !!data.signedIn;
+          loaded = true;
+          failed = false;
+          render();
+          updateVisibleState();
+        })
+        .catch(function () {
+          loaded = false;
+          failed = true;
+          updateVisibleState();
+        });
+    }
+
+    function askForAccount() {
+      if (window.usernode && typeof window.usernode.askForAccount === 'function') {
+        try {
+          window.usernode.askForAccount({ action: 'add a memory' });
+          return true;
+        } catch (e) {}
+      }
+      return false;
+    }
+
+    function showFormError(message) {
+      els.formError.textContent = message;
+      els.formError.hidden = false;
+    }
+
+    function openForm() {
+      if (signedIn === null) return;
+      if (!signedIn) {
+        if (!askForAccount()) {
+          els.status.textContent = 'Make a Homeroom account to add a memory.';
+        }
+        return;
+      }
+      formOpen = true;
+      els.memoryForm.hidden = false;
+      els.formError.hidden = true;
+      els.status.textContent = '';
+      updateVisibleState();
+      els.title.focus();
+    }
+
+    function closeForm(reset) {
+      formOpen = false;
+      els.memoryForm.hidden = true;
+      els.formError.hidden = true;
+      if (reset) els.memoryForm.reset();
+      updateVisibleState();
+    }
+
+    function onSaved(memory) {
+      if (statusTimer) clearTimeout(statusTimer);
+      memories.push(memory);
+      memories = sortedCopy();
+      render();
+      closeForm(true);
+      updateVisibleState();
+
+      els.status.textContent = 'Memory added';
+      statusTimer = setTimeout(function () {
+        els.status.textContent = '';
+      }, 5000);
+
+      const saved = Array.prototype.find.call(
+        els.timeline.querySelectorAll('[data-memory]'),
+        function (node) { return node.dataset.memoryId === String(memory.id); }
+      );
+      if (saved) {
+        saved.classList.add('memory-added');
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        saved.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'center' });
+        setTimeout(function () { saved.classList.remove('memory-added'); }, 2600);
+      }
+    }
+
+    function save(event) {
+      event.preventDefault();
+      if (saving) return;
+
+      saving = true;
+      els.saveMemory.disabled = true;
+      els.formError.hidden = true;
+
+      fetch('/api/memories', {
+        method: 'POST',
+        headers: requestHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          title: els.title.value,
+          body: els.story.value,
+          happened_on: els.date.value,
+        }),
+      })
+        .then(function (response) {
+          return response.json()
+            .catch(function () { return {}; })
+            .then(function (data) { return { response: response, data: data }; });
+        })
+        .then(function (result) {
+          if (result.response.status === 201 && result.data.memory) {
+            onSaved(result.data.memory);
+            return;
+          }
+          if (result.response.status === 401 && result.data.error === 'account_required') {
+            if (!askForAccount()) showFormError('Make a Homeroom account to add a memory.');
+            return;
+          }
+          if (result.response.status === 400 && result.data.message) {
+            showFormError(result.data.message);
+            return;
+          }
+          showFormError("Your memory wasn't saved. Check your connection and try again.");
+        })
+        .catch(function () {
+          showFormError("Your memory wasn't saved. Check your connection and try again.");
+        })
+        .then(function () {
+          saving = false;
+          els.saveMemory.disabled = false;
+        });
+    }
+
+    els.openForm.addEventListener('click', openForm);
+    els.emptyAdd.addEventListener('click', openForm);
+    els.cancelForm.addEventListener('click', function () { closeForm(true); });
+    els.retry.addEventListener('click', load);
+    els.memoryForm.addEventListener('submit', save);
+
+    els.date.max = localDayString(nowDate());
+    load();
+  })();
+  </script>
 </body>
 </html>
