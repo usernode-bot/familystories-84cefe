@@ -7,6 +7,63 @@ const app = express();
 const port = process.env.PORT || 3000;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
+const IS_STAGING = process.env.USERNODE_ENV === 'staging';
+
+// Memories are family stories: personal information, so the table is
+// `staging:private` (schema on staging, no production rows). Created on boot,
+// idempotently, before the app starts listening.
+async function migrate() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS memories (
+      id          BIGSERIAL PRIMARY KEY,
+      user_id     TEXT NOT NULL,
+      username    TEXT NOT NULL,
+      title       TEXT NOT NULL,
+      body        TEXT NOT NULL,
+      happened_on DATE NOT NULL,
+      created_at  TIMESTAMPTZ NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS memories_happened_on_idx
+      ON memories (happened_on, created_at, id);
+    COMMENT ON TABLE memories IS 'staging:private';
+  `);
+
+  if (IS_STAGING) {
+    // Obviously fake rows so the staging preview shows a filled timeline.
+    // Fixed ids far above the BIGSERIAL sequence, so they never collide with
+    // a real memory; nothing in the app reads them to decide anything.
+    await pool.query(`
+      INSERT INTO memories (id, user_id, username, title, body, happened_on, created_at) VALUES
+        (900001, 'staging-demo-1', 'staging-demo-user', 'Staging demo: Grandma opens her bakery',
+         E'A made-up memory for the staging preview. The shop had one oven and a bell over the door that rang every time somebody came in.',
+         '1962-04-14', '2026-01-01T09:00:00Z'),
+        (900002, 'staging-demo-2', 'staging-demo-cousin', 'Staging demo: The family moves to the coast',
+         E'A made-up memory for the staging preview. Everything fit in one van, and the cat rode the whole way on the front seat.',
+         '1978-08-02', '2026-01-01T09:01:00Z'),
+        (900003, 'staging-demo-3', 'staging-demo-aunt', 'Staging demo: First reunion in the park',
+         E'A made-up memory for the staging preview. Forty people, three picnic tables pushed together and a cake shaped like the old house.',
+         '1995-07-22', '2026-01-01T09:02:00Z')
+      ON CONFLICT (id) DO NOTHING;
+    `);
+  }
+}
+
+// The two requests the platform sends when a person deletes their account or
+// asks for a copy of their data. They carry no sign-in token: a platform
+// token in `x-usernode-platform-token`, with `pur` naming the job.
+function platformClaims(req, pur) {
+  const token = req.headers['x-usernode-platform-token'];
+  if (!token || !JWT_PUBLIC_KEY || !APP_AUDIENCE) return null;
+  try {
+    const claims = jwt.verify(token, JWT_PUBLIC_KEY, {
+      algorithms: ['RS256'],
+      issuer: 'usernode',
+      audience: APP_AUDIENCE,
+    });
+    return claims && claims.pur === pur ? claims : null;
+  } catch { return null; }
+}
+
 // The platform signs user-identity tokens with an RSA private key it never
 // shares. Containers get only the PUBLIC half, so this app can verify who a
 // user is but cannot mint an identity — and neither can any other app.
@@ -80,6 +137,36 @@ app.get(/^\/usernode-(?:bridge|native|tailwind)\//, async (req, res) => {
   }
 });
 
+// Account data: mounted before the sign-in middleware, because the platform
+// sends them server to server with no person's browser involved.
+app.post('/usernode/user-deletion', async (req, res) => {
+  const claims = platformClaims(req, 'user-deletion');
+  if (!claims) return res.sendStatus(403);
+  try {
+    await pool.query('DELETE FROM memories WHERE user_id = $1', [String(claims.id)]);
+    return res.sendStatus(204);
+  } catch (err) {
+    console.error('user-deletion failed:', err);
+    return res.sendStatus(500);
+  }
+});
+
+app.get('/usernode/user-export', async (req, res) => {
+  const claims = platformClaims(req, 'user-export');
+  if (!claims) return res.sendStatus(403);
+  try {
+    const result = await pool.query(
+      `SELECT id, username, title, body, to_char(happened_on, 'YYYY-MM-DD') AS happened_on, created_at
+         FROM memories WHERE user_id = $1 ORDER BY happened_on ASC, created_at ASC, id ASC`,
+      [String(claims.id)]
+    );
+    return res.json({ userId: String(claims.id), tables: { memories: result.rows } });
+  } catch (err) {
+    console.error('user-export failed:', err);
+    return res.sendStatus(500);
+  }
+});
+
 // "Now" for this request, as a Date: `req.now`, set for every request by
 // the middleware below. Read the day and the time through it (and
 // `usernode.now()` in the page), never `new Date()` or SQL's NOW(),
@@ -89,7 +176,6 @@ app.get(/^\/usernode-(?:bridge|native|tailwind)\//, async (req, res) => {
 // page sends `usernode.now()` on as the `x-usernode-now` header. Only a
 // staging container reads either. See "Time-dependent features" in the
 // platform conventions.
-const IS_STAGING = process.env.USERNODE_ENV === 'staging';
 const PREVIEW_NOW = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/;
 function requestNow(req) {
   const raw = IS_STAGING ? (req.headers['x-usernode-now'] || req.query['un-now']) : null;
@@ -147,6 +233,78 @@ app.use((req, res, next) => {
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
+// One shared family timeline, oldest memory first. Guests may read it; only a
+// signed-in member may add to it.
+app.get('/api/memories', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, username, title, body, to_char(happened_on, 'YYYY-MM-DD') AS happened_on, created_at
+         FROM memories
+        ORDER BY happened_on ASC, created_at ASC, id ASC
+        LIMIT 2000`
+    );
+    return res.json({ memories: result.rows, signedIn: !!req.user });
+  } catch (err) {
+    console.error('memories list failed:', err);
+    return res.status(500).json({ error: 'load_failed' });
+  }
+});
+
+// The server stays the authority on every rule the form also checks.
+function validateMemory(input, now) {
+  const title = typeof input.title === 'string' ? input.title.trim() : '';
+  const body = typeof input.body === 'string' ? input.body.trim() : '';
+  const date = typeof input.happened_on === 'string' ? input.happened_on.trim() : '';
+
+  if (!title) return { error: 'title_required', message: 'Give the memory a title.' };
+  if (title.length > 120) return { error: 'title_too_long', message: 'Keep the title to 120 characters or fewer.' };
+  if (!body) return { error: 'story_required', message: 'Write the story of what happened.' };
+  if (body.length > 5000) return { error: 'story_too_long', message: 'Keep the story to 5,000 characters or fewer.' };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return { error: 'date_invalid', message: 'Enter the day it happened.' };
+  }
+  const year = Number(date.slice(0, 4));
+  const month = Number(date.slice(5, 7));
+  const day = Number(date.slice(8, 10));
+  const ms = Date.UTC(year, month - 1, day);
+  const rebuilt = new Date(ms);
+  if (rebuilt.getUTCFullYear() !== year || rebuilt.getUTCMonth() !== month - 1 || rebuilt.getUTCDate() !== day) {
+    return { error: 'date_invalid', message: 'That is not a real day. Check the date.' };
+  }
+  if (ms < Date.UTC(1800, 0, 1)) {
+    return { error: 'date_too_early', message: 'The date can’t be earlier than 1 January 1800.' };
+  }
+  // One day of slack past the UTC date, so people ahead of UTC can still
+  // enter their own today.
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  if (ms > todayUtc + 86400000) {
+    return { error: 'date_in_future', message: 'The date can’t be in the future.' };
+  }
+  return { title, body, happened_on: date };
+}
+
+app.post('/api/memories', async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'account_required', action: 'add a memory' });
+  }
+  const input = req.body && typeof req.body === 'object' ? req.body : {};
+  const valid = validateMemory(input, req.now);
+  if (valid.error) return res.status(400).json(valid);
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO memories (user_id, username, title, body, happened_on, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, username, title, body, to_char(happened_on, 'YYYY-MM-DD') AS happened_on, created_at`,
+      [String(req.user.id), String(req.user.username || 'someone'), valid.title, valid.body, valid.happened_on, req.now]
+    );
+    return res.status(201).json({ memory: result.rows[0] });
+  } catch (err) {
+    console.error('memory save failed:', err);
+    return res.status(500).json({ error: 'save_failed' });
+  }
+});
+
 // The template ships no favicon file; index.html carries an inline SVG
 // icon instead. Answer 204 here so anything that still probes
 // /favicon.ico (older browsers, direct visits) doesn't fall through to
@@ -192,9 +350,28 @@ app.get('*', (req, res) => {
 });
 
 async function start() {
+  await migrate();
   const server = app.listen(port, () => console.log(`Listening on :${port}`));
   // Let Envoy retire idle upstream connections at 60s, with a 15s margin.
   server.keepAliveTimeout = 75_000;
+
+  // The app now holds database connections: stop taking requests, let them
+  // drain, close the pool, then exit.
+  let closing = false;
+  const shutdown = async () => {
+    if (closing) return;
+    closing = true;
+    server.close(async () => {
+      try { await pool.end(); } catch {}
+      process.exit(0);
+    });
+    setTimeout(async () => {
+      try { await pool.end(); } catch {}
+      process.exit(0);
+    }, 3000).unref();
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
 start().catch(err => { console.error(err); process.exit(1); });

@@ -99,22 +99,37 @@ tables you've marked private), etc.
 
 Turn family voices into stories and a family tree
 
-_(add a sentence or two more of product context here so Claude Code has a
-shared understanding of what this app is for)_
+FamilyStories is one shared timeline for the whole family: anyone with a
+Homeroom account can add a memory (a title, the story and the day it
+happened), and every relative reads them in the order the moments
+happened, oldest first, grouped under the year.
+
+- Memories live in the `memories` table (created on boot in `server.js`),
+  marked `staging:private`. `happened_on` is a calendar day with no time
+  zone and is always selected with `to_char(...)` so `pg` never turns it
+  into a JS `Date` and shifts the day.
+- `GET /api/memories` is readable by guests; `POST /api/memories` needs a
+  signed-in member. Guests who tap "Add a memory" are asked for an account
+  first, through `usernode.askForAccount`.
+- Staging seeds three obviously fake memories ("Staging demo: ..."), on boot
+  and only when `USERNODE_ENV=staging`.
 
 ## Design
 
 This app's look. The first real version fills in the blanks; every later
 change follows it, and updates it when a request changes the look on purpose.
 
-- **Palette:** _(name the accent, any second colour and the neutrals, e.g.
-  "accent: tomato red; second: basil green; neutrals: warm greys")_
-- **Signature element:** _(the one thing on screen drawn from this app's
-  subject, which no other app would have)_
+- **Palette:** accent: ink blue (`--accent`, like the ink on an old family
+  letter) for the primary button and the timeline dots; brand yellow
+  (`--marker` / `--on-marker`) for the year markers; neutrals: warm greys
+  (`--ground`, `--surface`, `--raised`, `--fg`, `--muted`, `--line`).
+- **Signature element:** the timeline itself, a line down the page with a
+  yellow year tab and an ink dot at each memory, so the family reads its
+  story in the order it happened.
 - **Type scale:** `text-title`, `text-heading`, `text-body`, `text-small`
-  _(change their sizes in `tailwind.config.js` if you must, not their number)_
-- **One fixed look:** _(only for an app drawn as its own scene, such as a
-  game: which look, and why. Otherwise delete this line.)_
+  (change their sizes in `tailwind.config.js` if you must, not their number).
+  Titles and stories use `font-serif`; dates, labels and buttons stay in the
+  default sans.
 
 The kit is in `styles/tailwind-input.css`: colour tokens with a light and
 a dark value (named in `tailwind.config.js`), and a few components

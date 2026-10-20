@@ -35,11 +35,13 @@
     --fg: 28 25 23;           /* text */
     --muted: 87 83 78;        /* secondary text */
     --line: 231 229 228;      /* borders, dividers, skeletons */
-    --accent: 15 118 110;     /* the one accent */
+    --accent: 30 64 175;      /* the one accent: old family-letter ink blue */
     --on-accent: 255 255 255; /* text on the accent */
     --danger: 185 28 28;
     --on-danger: 255 255 255;
-    --focus: 13 148 136;      /* the keyboard focus ring */
+    --focus: 37 99 235;       /* the keyboard focus ring */
+    --marker: 255 238 111;    /* the brand yellow, on each year marker */
+    --on-marker: 28 25 23;    /* text on the year marker */
   }
   .dark {
     --ground: 12 10 9;
@@ -48,11 +50,13 @@
     --fg: 245 245 244;
     --muted: 168 162 158;
     --line: 68 64 60;
-    --accent: 45 212 191;
-    --on-accent: 4 47 46;
+    --accent: 147 197 253;
+    --on-accent: 23 37 84;
     --danger: 248 113 113;
     --on-danger: 69 10 10;
-    --focus: 94 234 212;
+    --focus: 147 197 253;
+    --marker: 250 204 21;
+    --on-marker: 28 25 23;
   }
   /* el.hidden = true hides an element even when a class gives it a display
      (flex, the components below). */
@@ -124,5 +128,24 @@
   .state-empty,
   .state-error {
     @apply flex flex-col items-center gap-2 px-4 py-8 text-center;
+  }
+
+  /* The family timeline: a line down the page with a yellow year tab and an
+     ink dot for each memory, so a long list reads in the order it happened. */
+  .timeline {
+    @apply ml-2 flex list-none flex-col border-l-2 border-line p-0;
+  }
+  .timeline-year {
+    @apply pb-7 pl-6;
+  }
+  .year-tab {
+    @apply -ml-10 inline-block rounded-md bg-marker px-2 py-0.5 text-small font-semibold text-on-marker;
+  }
+  .memory {
+    @apply relative flex flex-col gap-1;
+  }
+  .memory::before {
+    content: "";
+    @apply absolute -left-8 top-1.5 h-3 w-3 rounded-full border-2 border-ground bg-accent;
   }
 }

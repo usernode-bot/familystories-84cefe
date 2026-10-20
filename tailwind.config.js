@@ -55,6 +55,14 @@ module.exports = {
         danger: token('danger'),
         'on-danger': token('on-danger'),
         focus: token('focus'), // the keyboard focus ring
+        marker: token('marker'), // the brand yellow year marker
+        'on-marker': token('on-marker'), // text on the year marker
+      },
+      // Stories read like written-down memories: the system serif. Dates,
+      // labels and buttons stay in the default sans face.
+      fontFamily: {
+        sans: ['system-ui', '-apple-system', '"Segoe UI"', 'sans-serif'],
+        serif: ['ui-serif', 'Georgia', 'Cambria', '"Times New Roman"', 'serif'],
       },
       // The type scale: four sizes, and nothing in between.
       fontSize: {
