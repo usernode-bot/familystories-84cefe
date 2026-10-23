@@ -27,6 +27,11 @@
       "name": "Timeline offers Add a memory",
       "path": "/",
       "expectText": "Add a memory"
+    },
+    {
+      "name": "First screen says what FamilyStories is for",
+      "path": "/",
+      "expectText": "Keep your family's stories, from one generation to the next"
     }
   ]
 }

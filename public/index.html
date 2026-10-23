@@ -113,8 +113,8 @@
   <main class="mx-auto flex max-w-md flex-col gap-6 px-4 py-10">
     <header class="flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h1 class="font-serif text-title">Family timeline</h1>
-        <p class="mt-1 text-body text-muted">Memories in the order they happened</p>
+        <h1 class="font-serif text-title">Keep your family's stories, from one generation to the next</h1>
+        <p class="mt-1 text-body text-muted">Write down the moments your family remembers, and everyone reads them in the order they happened.</p>
       </div>
       <button id="open-form" class="btn-primary shrink-0 whitespace-nowrap" type="button">Add a memory</button>
     </header>
@@ -175,8 +175,27 @@
 
     <div id="empty" class="state-empty" hidden>
       <h2 class="font-serif text-heading">No memories yet</h2>
-      <p class="text-body text-muted">Add the first one: a birthday, a move, a wedding. The timeline starts there.</p>
-      <button id="empty-add" class="btn-primary" type="button">Add a memory</button>
+      <p class="text-body text-muted">A memory can be any day worth keeping, like these:</p>
+      <ul class="list mt-2 w-full text-left" aria-label="Example memories">
+        <li class="list-row">
+          <span class="flex-1 font-serif text-body">Grandma's birthday</span>
+          <span class="rounded-md bg-raised px-2 py-0.5 text-small text-muted">Example</span>
+        </li>
+        <li class="list-row">
+          <span class="flex-1 font-serif text-body">Moving to a new home</span>
+          <span class="rounded-md bg-raised px-2 py-0.5 text-small text-muted">Example</span>
+        </li>
+        <li class="list-row">
+          <span class="flex-1 font-serif text-body">Mom and Dad's wedding</span>
+          <span class="rounded-md bg-raised px-2 py-0.5 text-small text-muted">Example</span>
+        </li>
+      </ul>
+      <ol class="my-2 flex list-none flex-wrap justify-center gap-4 p-0" aria-label="How to start">
+        <li class="text-small text-muted"><span class="mr-1 font-semibold text-fg">1</span>Write</li>
+        <li class="text-small text-muted"><span class="mr-1 font-semibold text-fg">2</span>Add a photo</li>
+        <li class="text-small text-muted"><span class="mr-1 font-semibold text-fg">3</span>Invite family</li>
+      </ol>
+      <button id="empty-add" class="btn-primary" type="button">Start your first story</button>
     </div>
 
     <ol id="timeline" class="timeline" hidden></ol>
