@@ -19,7 +19,12 @@ anywhere else.
   in the future and not before 1 January 1800. The server checks every rule
   the form checks.
 - **Guests** (visitors without a Homeroom account) can read the whole
-  timeline. Tapping "Add a memory" asks them to make an account first.
+  timeline. Tapping "Mulai cerita pertama" asks them to make an account
+  first.
+- **The first screen** explains the app: a purpose headline, the empty
+  state with three example memories under a "Contoh" label, and the three
+  short steps (Tulis, Tambah foto, Undang keluarga). The examples go away
+  as soon as the timeline has a story in it.
 
 ## Data
 
@@ -53,6 +58,8 @@ staging preview gets the schema but none of the real family's rows.
 On boot, and only when `USERNODE_ENV=staging`, three obviously fake memories
 (titled "Staging demo: ...") are inserted with fixed ids, so the preview
 shows a filled timeline. They are idempotent and never touch real rows.
+Opening the preview at `/?demo=1` asks `GET /api/memories?demo=1` to leave
+those seeded rows out (staging only), so the empty first screen can be seen.
 
 ## Running locally
 

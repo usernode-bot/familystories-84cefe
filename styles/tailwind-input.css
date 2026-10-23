@@ -130,6 +130,18 @@
     @apply flex flex-col items-center gap-2 px-4 py-8 text-center;
   }
 
+  /* The three short steps on the empty screen (Tulis, Tambah foto, Undang
+     keluarga): one quiet reading line, not a numbered sequence. */
+  .steps {
+    @apply flex flex-wrap items-center justify-center gap-x-1 text-small text-muted;
+  }
+  /* A small dot between the steps: drawn, not typed, so a screen reader
+     reads "Tulis", "Tambah foto", "Undang keluarga" and nothing else. */
+  .steps > li + li::before {
+    content: "";
+    @apply mx-1.5 inline-block h-1 w-1 rounded-full bg-muted/50 align-middle;
+  }
+
   /* The family timeline: a line down the page with a yellow year tab and an
      ink dot for each memory, so a long list reads in the order it happened. */
   .timeline {
