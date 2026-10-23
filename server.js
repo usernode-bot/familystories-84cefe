@@ -128,14 +128,14 @@ async function migrate() {
 
     await pool.query(
       `INSERT INTO memories (id, user_id, username, title, body, happened_on, date_precision, people, photo_url, created_at) VALUES
-        (900001, 'staging-demo-1', 'staging-demo-user', 'Staging demo: Grandma opens her bakery',
-         E'A made-up memory for the staging preview. The shop had one oven and a bell over the door that rang every time somebody came in.',
+        (900001, 'staging-demo-1', 'staging-demo-user', 'Staging demo: Nenek membuka toko roti',
+         E'Cerita contoh untuk pratinjau staging. Tokonya hanya punya satu oven, dan bel di atas pintu berbunyi setiap kali ada yang masuk.',
          '1962-04-14', 'day', ARRAY['Grandma', 'Grandpa'], $1, '2026-01-01T09:00:00Z'),
-        (900002, 'staging-demo-2', 'staging-demo-cousin', 'Staging demo: The family moves to the coast',
-         E'A made-up memory for the staging preview. Everything fit in one van, and the cat rode the whole way on the front seat.',
+        (900002, 'staging-demo-2', 'staging-demo-cousin', 'Staging demo: Keluarga pindah ke pesisir',
+         E'Cerita contoh untuk pratinjau staging. Semua barang masuk satu mobil, dan kucing ikut duduk di kursi depan sepanjang jalan.',
          '1978-08-02', 'day', ARRAY['Mum', 'Uncle Ray'], $1, '2026-01-01T09:01:00Z'),
-        (900003, 'staging-demo-3', 'staging-demo-aunt', 'Staging demo: First reunion in the park',
-         E'A made-up memory for the staging preview. Forty people, three picnic tables pushed together and a cake shaped like the old house.',
+        (900003, 'staging-demo-3', 'staging-demo-aunt', 'Staging demo: Reuni pertama di taman',
+         E'Cerita contoh untuk pratinjau staging. Empat puluh orang, tiga meja piknik disatukan, dan kue berbentuk rumah lama.',
          '1995-01-01', 'year', ARRAY['Grandma', 'Mum'], NULL, '2026-01-01T09:02:00Z')
       ON CONFLICT (id) DO NOTHING`,
       [demoPhoto]
@@ -381,6 +381,11 @@ app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 // list: `audio_duration_ms` is enough to draw its player.
 app.get('/api/memories', async (req, res) => {
   try {
+    // The staging seed fills the preview's timeline. `?demo=1` (staging only)
+    // leaves those seeded rows out, so the empty first screen, with its
+    // example cards, can be reviewed and checked there. Production has no
+    // seeded rows, so this branch never runs on the live app.
+    const demo = IS_STAGING && req.query.demo === '1';
     const result = await pool.query(
       `SELECT m.id, m.username, m.title, m.body,
               to_char(m.happened_on, 'YYYY-MM-DD') AS happened_on,
@@ -388,6 +393,7 @@ app.get('/api/memories', async (req, res) => {
               a.duration_ms AS audio_duration_ms
          FROM memories m
          LEFT JOIN memory_audio a ON a.memory_id = m.id
+        ${demo ? 'WHERE m.id NOT IN (900001, 900002, 900003)' : ''}
         ORDER BY m.happened_on ASC, m.created_at ASC, m.id ASC
         LIMIT 2000`
     );
@@ -407,12 +413,12 @@ function validateMemory(input, now) {
   // then 1 January of that year, and the timeline shows just the year.
   const precision = input.date_precision === 'year' ? 'year' : 'day';
 
-  if (!title) return { error: 'title_required', message: 'Give the memory a title.' };
-  if (title.length > 120) return { error: 'title_too_long', message: 'Keep the title to 120 characters or fewer.' };
-  if (!body) return { error: 'story_required', message: 'Write the story of what happened.' };
-  if (body.length > 5000) return { error: 'story_too_long', message: 'Keep the story to 5,000 characters or fewer.' };
+  if (!title) return { error: 'title_required', message: 'Beri cerita ini judul.' };
+  if (title.length > 120) return { error: 'title_too_long', message: 'Judul maksimal 120 karakter.' };
+  if (!body) return { error: 'story_required', message: 'Tulis cerita tentang apa yang terjadi.' };
+  if (body.length > 5000) return { error: 'story_too_long', message: 'Cerita maksimal 5.000 karakter.' };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return { error: 'date_invalid', message: 'Enter the year it happened.' };
+    return { error: 'date_invalid', message: 'Isi tahun kejadiannya.' };
   }
   const year = Number(date.slice(0, 4));
   const month = Number(date.slice(5, 7));
@@ -420,19 +426,19 @@ function validateMemory(input, now) {
   const ms = Date.UTC(year, month - 1, day);
   const rebuilt = new Date(ms);
   if (rebuilt.getUTCFullYear() !== year || rebuilt.getUTCMonth() !== month - 1 || rebuilt.getUTCDate() !== day) {
-    return { error: 'date_invalid', message: 'That is not a real day. Check the date.' };
+    return { error: 'date_invalid', message: 'Tanggal itu tidak ada. Periksa kembali.' };
   }
   if (precision === 'year' && (month !== 1 || day !== 1)) {
     return { error: 'date_invalid', message: 'A memory with only a year is stored from 1 January. Check the year.' };
   }
   if (ms < Date.UTC(1800, 0, 1)) {
-    return { error: 'date_too_early', message: 'The date can’t be earlier than 1 January 1800.' };
+    return { error: 'date_too_early', message: 'Tanggal tidak boleh sebelum 1 Januari 1800.' };
   }
   // One day of slack past the UTC date, so people ahead of UTC can still
   // enter their own today.
   const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   if (ms > todayUtc + 86400000) {
-    return { error: 'date_in_future', message: 'The date can’t be in the future.' };
+    return { error: 'date_in_future', message: 'Tanggal tidak boleh di masa depan.' };
   }
   const people = peopleOrError(input.people);
   if (people.error) return people;

@@ -33,8 +33,12 @@ anywhere else.
   in `dapp.json`), capped at two minutes, and uploaded to the app itself,
   because the platform's file storage accepts images only.
 - **Guests** (visitors without a Homeroom account) can read the whole
-  timeline, including its photos and voice notes. Tapping "Add a memory" asks
-  them to make an account first.
+  timeline, including its photos and voice notes. Tapping "Mulai cerita
+  pertama" asks them to make an account first.
+- **The first screen** explains the app: a purpose headline, the empty
+  state with three example memories under a "Contoh" label, and the three
+  short steps (Tulis, Tambah foto, Undang keluarga). The examples go away
+  as soon as the timeline has a story in it.
 
 ## Data
 
@@ -86,7 +90,9 @@ On boot, and only when `USERNODE_ENV=staging`, three obviously fake memories
 a filled timeline with photos, family-member filters and a voice note. Photos
 are inline placeholder images (platform-stored files are not copied into
 staging) and the voice note is a generated two-second tone. They are
-idempotent and never touch real rows.
+idempotent and never touch real rows. Opening the preview at `/?demo=1` asks
+`GET /api/memories?demo=1` to leave those seeded rows out (staging only), so
+the empty first screen can be seen.
 
 ## Running locally
 

@@ -30,9 +30,15 @@
       ]
     },
     {
-      "name": "Timeline offers Add a memory",
+      "name": "First screen explains the app",
       "path": "/",
-      "expectText": "Add a memory"
+      "expectText": "Simpan cerita keluarga, dari generasi ke generasi"
+    },
+    {
+      "name": "Empty screen shows the example memories",
+      "path": "/?demo=1",
+      "expectSelector": "[data-example]",
+      "expectText": "Mulai cerita pertama"
     },
     {
       "id": "timeline.people-filter",

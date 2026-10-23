@@ -128,7 +128,11 @@ timeline to one family member.
   first, through `usernode.askForAccount`.
 - Staging seeds three obviously fake memories ("Staging demo: ..."), with
   placeholder photos and a generated two-second tone, on boot and only when
-  `USERNODE_ENV=staging`.
+  `USERNODE_ENV=staging`. Opening the preview at `/?demo=1` leaves those
+  seeded rows out (staging only), so the empty first screen can be seen and
+  checked.
+- The app's copy is Indonesian. Keep every user-facing string (page, form,
+  validation messages) in Indonesian.
 
 ## Design
 
