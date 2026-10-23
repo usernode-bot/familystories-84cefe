@@ -201,82 +201,103 @@
     <ol id="timeline" class="timeline" hidden></ol>
   </main>
 
-  <!-- Add a memory. Presented as a modal by the native kit when it is
+  <!-- Add a memory. Presented as the native kit's bottom sheet when it is
        available (keyboard avoidance and scrolling come with it); otherwise
        it opens inline as a card. -->
-  <form id="memory-form" class="flex flex-col gap-3" hidden>
-    <!-- iOS-style bar: Cancel and Save stay at the top, where the keyboard
-         cannot cover them. -->
-    <div class="flex items-center justify-between gap-2 border-b border-line pb-3">
-      <button id="cancel" class="btn-secondary px-3" type="button">Cancel</button>
-      <h2 class="font-serif text-heading">Add a memory</h2>
-      <button id="save" class="btn-primary px-3" type="submit">Save</button>
+  <form id="memory-form" class="flex flex-col" hidden>
+    <div class="relative mx-auto flex w-full max-w-md items-center justify-center pb-2">
+      <button id="cancel" class="absolute left-0 top-1/2 min-h-11 -translate-y-1/2 rounded-lg px-2 text-body font-medium text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+              type="button">Batal</button>
+      <h2 data-form-title class="font-serif text-heading">Kenangan baru</h2>
     </div>
 
-    <label class="flex flex-col gap-1 text-small font-medium text-fg" for="title">What happened
-      <input id="title" name="title" class="field font-normal" type="text" maxlength="120"
-             placeholder="e.g. Grandpa buys his first car" autocomplete="off" required>
-    </label>
+    <div class="memory-sheet-body">
+      <label class="flex flex-col gap-1 text-small font-medium text-fg" for="title">Apa yang terjadi
+        <input id="title" name="title" class="field font-normal" type="text" maxlength="120"
+               placeholder="mis. Kakek membeli sepeda motor pertamanya" autocomplete="off" required>
+      </label>
 
-    <div class="flex flex-col gap-1">
-      <label class="text-small font-medium text-fg" for="year">Year it happened</label>
-      <input id="year" name="year" class="field font-normal" type="number" inputmode="numeric"
-             min="1800" step="1" placeholder="e.g. 1962" required>
+      <fieldset class="flex flex-col gap-2">
+        <legend class="text-small font-medium text-fg">Kapan?</legend>
+        <input id="year" name="year" class="field field-year" type="text" inputmode="numeric"
+               pattern="[0-9]*" maxlength="4" aria-label="Tahun" placeholder="mis. 1962" required>
+        <div class="date-link">
+          <span id="date-link" class="text-small font-medium text-accent underline underline-offset-4">Tahu tanggal pastinya?</span>
+          <input id="happened-on" name="happened_on" class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                 type="date" aria-label="Tanggal pasti">
+        </div>
+        <button id="date-clear" class="min-h-11 w-fit text-small font-medium text-accent underline underline-offset-4"
+                type="button" hidden>Hapus tanggal</button>
+      </fieldset>
+
+      <label class="flex flex-col gap-1 text-small font-medium text-fg" for="body">Ceritanya (opsional)
+        <textarea id="body" name="body" class="field min-h-28 font-normal" rows="5" maxlength="5000"
+                  placeholder="mis. Siapa saja yang ada, di mana, apa yang masih sering diceritakan"></textarea>
+      </label>
+
+      <div class="flex flex-col gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <div id="photo-idle">
+            <button id="photo-pick" class="attach-btn" type="button">
+              <svg aria-hidden="true" viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor"
+                   stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+                <circle cx="9" cy="10" r="1.5"></circle>
+                <path d="M21 16l-5-5-8 8"></path>
+              </svg>
+              Foto
+            </button>
+          </div>
+          <div id="voice-idle">
+            <button id="voice-record" class="attach-btn" type="button">
+              <svg aria-hidden="true" viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor"
+                   stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="3" width="6" height="11" rx="3"></rect>
+                <path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path>
+              </svg>
+              Rekam suara
+            </button>
+          </div>
+        </div>
+        <p class="text-small text-muted">Rekaman paling lama dua menit.</p>
+
+        <div id="photo-preview" class="flex items-center gap-3" hidden>
+          <img id="photo-thumb" class="h-16 w-16 rounded-lg border border-line object-cover" alt="Foto yang kamu pilih">
+          <button id="photo-remove" class="btn-secondary" type="button">Hapus foto</button>
+        </div>
+        <p id="photo-note" class="text-small text-muted" hidden>Foto belum bisa ditambahkan di sini. Kenangannya tetap bisa disimpan.</p>
+        <input id="photo-input" class="sr-only" type="file" accept="image/*" tabindex="-1" aria-hidden="true">
+
+        <div id="voice-recording" class="flex items-center gap-3" hidden>
+          <span class="voice-dot motion-safe:animate-pulse" aria-hidden="true"></span>
+          <span id="voice-timer" class="text-body tabular-nums">0:00</span>
+          <button id="voice-stop" class="btn-secondary" type="button">Berhenti</button>
+        </div>
+        <div id="voice-preview" class="flex flex-col gap-2" hidden>
+          <span id="voice-label" class="text-small text-muted">Rekaman suara</span>
+          <audio id="voice-audio" class="w-full" controls preload="metadata"></audio>
+          <button id="voice-remove" class="btn-secondary w-fit" type="button">Hapus rekaman</button>
+        </div>
+        <p id="voice-note" class="text-small text-muted" role="status" hidden></p>
+      </div>
+
+      <fieldset class="flex flex-col gap-2">
+        <legend class="text-small font-medium text-fg">Siapa saja yang ada?</legend>
+        <div id="people-chips" class="flex flex-wrap gap-2"></div>
+        <div class="flex gap-2">
+          <input id="person-input" class="field font-normal" type="text" maxlength="40"
+                 aria-label="Nama lain" placeholder="mis. Nenek" autocomplete="off">
+          <button id="person-add" class="btn-secondary shrink-0 px-3" type="button">Tambah</button>
+        </div>
+      </fieldset>
+
+      <p id="form-error" class="text-small text-danger" role="alert" hidden></p>
     </div>
 
-    <label class="flex flex-col gap-1 text-small font-medium text-fg" for="happened-on">Exact day (optional)
-      <input id="happened-on" name="happened_on" class="field font-normal" type="date">
-    </label>
-    <p class="-mt-2 text-small text-muted">Leave it empty if you only know the year.</p>
-
-    <label class="flex flex-col gap-1 text-small font-medium text-fg" for="body">The story
-      <textarea id="body" name="body" class="field min-h-28 font-normal" rows="5" maxlength="5000"
-                placeholder="e.g. Who was there, where it was, what people still say about it" required></textarea>
-    </label>
-
-    <div class="flex flex-col gap-2">
-      <span class="text-small font-medium text-fg">Photo (optional)</span>
-      <div id="photo-idle">
-        <button id="photo-pick" class="btn-secondary" type="button">Choose a photo</button>
-      </div>
-      <div id="photo-preview" class="flex items-center gap-3" hidden>
-        <img id="photo-thumb" class="h-16 w-16 rounded-lg border border-line object-cover" alt="The photo you chose">
-        <button id="photo-remove" class="btn-secondary" type="button">Remove photo</button>
-      </div>
-      <p id="photo-note" class="text-small text-muted" hidden>Photos aren't available here. You can still add the story.</p>
-      <input id="photo-input" class="sr-only" type="file" accept="image/*" tabindex="-1" aria-hidden="true">
+    <div class="sheet-actions">
+      <button id="save" class="btn-primary w-full" type="submit" disabled>Simpan</button>
+      <p id="save-hint" class="text-center text-small text-muted">Isi judul dan tahun untuk menyimpan.</p>
     </div>
-
-    <div class="flex flex-col gap-2">
-      <span class="text-small font-medium text-fg">Voice note (optional)</span>
-      <div id="voice-idle" class="flex flex-wrap items-center gap-2">
-        <button id="voice-record" class="btn-secondary" type="button">Record a voice note</button>
-        <span class="text-small text-muted">Up to two minutes.</span>
-      </div>
-      <div id="voice-recording" class="flex items-center gap-3" hidden>
-        <span class="voice-dot motion-safe:animate-pulse" aria-hidden="true"></span>
-        <span id="voice-timer" class="text-body tabular-nums">0:00</span>
-        <button id="voice-stop" class="btn-secondary" type="button">Stop</button>
-      </div>
-      <div id="voice-preview" class="flex flex-col gap-2" hidden>
-        <span id="voice-label" class="text-small text-muted">Voice note</span>
-        <audio id="voice-audio" class="w-full" controls preload="metadata"></audio>
-        <button id="voice-remove" class="btn-secondary w-fit" type="button">Remove voice note</button>
-      </div>
-      <p id="voice-note" class="text-small text-muted" role="status" hidden></p>
-    </div>
-
-    <div class="flex flex-col gap-2">
-      <label class="text-small font-medium text-fg" for="person-input">Who was there (optional)</label>
-      <div class="flex gap-2">
-        <input id="person-input" class="field font-normal" type="text" maxlength="40"
-               placeholder="e.g. Grandpa" autocomplete="off">
-        <button id="person-add" class="btn-secondary shrink-0 px-3" type="button">Add</button>
-      </div>
-      <ul id="people-chips" class="flex flex-wrap gap-2" hidden></ul>
-    </div>
-
-    <p id="form-error" class="text-small text-danger" role="alert" hidden></p>
   </form>
 
   <script>
@@ -318,7 +339,10 @@
       var titleInput = document.getElementById('title');
       var yearInput = document.getElementById('year');
       var dateInput = document.getElementById('happened-on');
+      var dateLink = document.getElementById('date-link');
+      var dateClear = document.getElementById('date-clear');
       var bodyInput = document.getElementById('body');
+      var saveHint = document.getElementById('save-hint');
 
       var photoInput = document.getElementById('photo-input');
       var photoPick = document.getElementById('photo-pick');
@@ -352,7 +376,6 @@
         String(today.getDate()).padStart(2, '0');
       dateInput.min = '1800-01-01';
       dateInput.max = maxDate;
-      yearInput.max = String(today.getFullYear());
 
       function request(method, url, body) {
         var headers = {};
@@ -393,6 +416,50 @@
         }).format(date);
       }
 
+      // "Kapan?" is one question: the year alone, with the day asked for
+      // only when the family knows it. Once a day is picked the link reads
+      // it in words, and the browser's own dd/mm/tttt box stays out of sight
+      // behind it.
+      function updateDateDisplay() {
+        if (dateInput.value) {
+          dateLink.textContent = formatDate(dateInput.value);
+          dateClear.hidden = false;
+        } else {
+          dateLink.textContent = 'Tahu tanggal pastinya?';
+          dateClear.hidden = true;
+        }
+      }
+
+      // The calendar opens on the year just typed.
+      function syncDateBounds() {
+        var digits = yearInput.value;
+        if (/^\d{4}$/.test(digits) && Number(digits) <= today.getFullYear()) {
+          dateInput.min = digits + '-01-01';
+          dateInput.max = digits + '-12-31' < maxDate ? digits + '-12-31' : maxDate;
+        } else {
+          dateInput.min = '1800-01-01';
+          dateInput.max = maxDate;
+        }
+      }
+
+      // Simpan is ready only with a title and a year, and the line under it
+      // says what is still missing.
+      var saving = false;
+      function updateSaveState() {
+        if (saving) return;
+        var ready = !!(titleInput.value.trim() && /^\d{4}$/.test(yearInput.value.trim()));
+        saveButton.disabled = !ready;
+        saveHint.hidden = ready;
+      }
+
+      // Cross-origin frames can refuse to open the date picker; a computer
+      // then shows the plain field instead, so the day can still be picked.
+      function revealDateField() {
+        if (!document.documentElement.classList.contains('un-desktop')) return;
+        dateInput.className = 'field mt-1 font-normal';
+        dateLink.parentElement.className = 'flex flex-col gap-1';
+      }
+
       function formatDuration(ms) {
         var total = Math.max(0, Math.round(ms / 1000));
         var minutes = Math.floor(total / 60);
@@ -421,7 +488,7 @@
             })
             .catch(function () {
               state = 'idle';
-              label.textContent = "This voice note couldn't be loaded. Try again.";
+              label.textContent = 'Rekaman suara ini tidak bisa dimuat. Coba lagi.';
             });
         }
         player.addEventListener('pointerdown', load);
@@ -458,10 +525,14 @@
         title.textContent = memory.title;
         item.appendChild(title);
 
-        var story = document.createElement('p');
-        story.className = 'whitespace-pre-line font-serif text-body leading-7';
-        story.textContent = memory.body;
-        item.appendChild(story);
+        // The story is optional, so a memory saved with just a title and a
+        // year shows no empty paragraph under it.
+        if (memory.body) {
+          var story = document.createElement('p');
+          story.className = 'whitespace-pre-line font-serif text-body leading-7';
+          story.textContent = memory.body;
+          item.appendChild(story);
+        }
 
         if (memory.people && memory.people.length) {
           item.setAttribute('data-people', memory.people.join(', '));
@@ -700,7 +771,7 @@
         photoInput.value = '';
         if (!file) return;
         if (!/^image\//.test(file.type)) {
-          showFormError('Choose an image file: JPG, PNG or WebP.');
+          showFormError('Pilih berkas gambar: JPG, PNG, atau WebP.');
           return;
         }
         downscale(file).then(function (small) {
@@ -770,7 +841,7 @@
         } catch (e) {
           stream.getTracks().forEach(function (track) { track.stop(); });
           voiceRecord.disabled = false;
-          setVoiceNote("Recording didn't start. Try again in another browser.");
+          setVoiceNote('Rekaman tidak mulai. Coba lagi di browser lain.');
           return;
         }
 
@@ -796,16 +867,16 @@
           if (blob.size < 128) {
             voiceIdle.hidden = false;
             voiceRecord.disabled = false;
-            setVoiceNote('That recording came through empty. Try again.');
+            setVoiceNote('Rekaman itu kosong. Coba lagi.');
             return;
           }
           if (pendingVoice && pendingVoice.url) URL.revokeObjectURL(pendingVoice.url);
           pendingVoice = { blob: blob, type: type, durationMs: Math.min(duration, MAX_RECORDING_MS) };
           pendingVoice.url = URL.createObjectURL(blob);
           voiceAudio.src = pendingVoice.url;
-          voiceLabel.textContent = 'Voice note · ' + formatDuration(pendingVoice.durationMs);
+          voiceLabel.textContent = 'Rekaman suara · ' + formatDuration(pendingVoice.durationMs);
           voicePreview.hidden = false;
-          setVoiceNote('Recording ready. Save the memory to keep it.');
+          setVoiceNote('Rekaman siap. Tekan Simpan untuk menyimpannya.');
         });
 
         recording = state;
@@ -830,7 +901,7 @@
       voiceRecord.addEventListener('click', function () {
         setVoiceNote('');
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
-          setVoiceNote("Recording isn't available in this browser. You can still add the story.");
+          setVoiceNote('Rekaman tidak tersedia di browser ini. Kenangannya tetap bisa disimpan.');
           return;
         }
         voiceRecord.disabled = true;
@@ -850,14 +921,14 @@
             if (answer && answer.state !== 'granted') {
               voiceRecord.disabled = false;
               setVoiceNote(answer.reason === 'declined'
-                ? 'Microphone access is off. You can still add the photo and the story.'
-                : "This app can't use the microphone right now.");
+                ? 'Akses mikrofon mati. Foto dan cerita tetap bisa ditambahkan.'
+                : 'Aplikasi ini belum bisa memakai mikrofon sekarang.');
               return null;
             }
             if (answer && answer.active === false) {
               // Granted just now: the platform reopens the frame so it takes
               // effect. Nothing else to do here.
-              toast('Microphone allowed. The app will reopen.');
+              toast('Mikrofon diizinkan. Aplikasi akan terbuka lagi.');
               return null;
             }
             return navigator.mediaDevices.getUserMedia({ audio: true });
@@ -868,7 +939,7 @@
           })
           .catch(function () {
             voiceRecord.disabled = false;
-            setVoiceNote('The microphone is blocked. Allow it for Homeroom in your browser settings and try again.');
+            setVoiceNote('Mikrofon diblokir. Izinkan untuk Homeroom di pengaturan browser, lalu coba lagi.');
           });
       });
 
@@ -882,26 +953,48 @@
       });
 
       // ── Family members ─────────────────────────────────────────────────
+      // The three names most memories have are one tap each; any other name
+      // typed below joins them as a chosen chip that a tap removes again.
+      var QUICK_PEOPLE = ['Kakek', 'Ayah', 'Aku'];
+
+      function isSelected(name) {
+        return selectedPeople.some(function (existing) {
+          return existing.toLowerCase() === name.toLowerCase();
+        });
+      }
+
       function renderPeopleChips() {
+        var names = QUICK_PEOPLE.slice();
+        selectedPeople.forEach(function (name) {
+          var isQuick = QUICK_PEOPLE.some(function (quick) {
+            return quick.toLowerCase() === name.toLowerCase();
+          });
+          if (!isQuick) names.push(name);
+        });
         peopleChips.textContent = '';
-        peopleChips.hidden = !selectedPeople.length;
-        selectedPeople.forEach(function (name, index) {
-          var chip = document.createElement('li');
-          chip.className = 'person-tag';
-          var text = document.createElement('span');
-          text.textContent = name;
-          var remove = document.createElement('button');
-          remove.type = 'button';
-          remove.className = 'un-touch-target -mr-1 flex h-6 w-6 items-center justify-center rounded-full text-muted hover:text-fg';
-          remove.setAttribute('aria-label', 'Remove ' + name);
-          remove.textContent = '×';
-          remove.addEventListener('click', function () {
-            selectedPeople.splice(index, 1);
+        names.forEach(function (name) {
+          var chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'filter-chip';
+          chip.textContent = name;
+          var on = isSelected(name);
+          chip.setAttribute('aria-pressed', String(on));
+          chip.addEventListener('click', function () {
+            if (on) {
+              selectedPeople = selectedPeople.filter(function (existing) {
+                return existing.toLowerCase() !== name.toLowerCase();
+              });
+            } else {
+              if (selectedPeople.length >= 8) {
+                showFormError('Tandai paling banyak 8 orang pada satu kenangan.');
+                return;
+              }
+              selectedPeople.push(name);
+            }
+            formError.hidden = true;
             renderPeopleChips();
             saveDraft();
           });
-          chip.appendChild(text);
-          chip.appendChild(remove);
           peopleChips.appendChild(chip);
         });
       }
@@ -916,18 +1009,15 @@
         personInput.value = '';
         if (!name) return;
         if (name.length > 40) {
-          showFormError('Keep each name to 40 characters or fewer.');
+          showFormError('Setiap nama maksimal 40 karakter.');
           return;
         }
-        var exists = selectedPeople.some(function (existing) {
-          return existing.toLowerCase() === name.toLowerCase();
-        });
-        if (exists) {
+        if (isSelected(name)) {
           personInput.focus();
           return;
         }
         if (selectedPeople.length >= 8) {
-          showFormError('Tag up to 8 people on one memory.');
+          showFormError('Tandai paling banyak 8 orang pada satu kenangan.');
           return;
         }
         selectedPeople.push(name);
@@ -951,8 +1041,10 @@
         discardRecording();
         setPeople([]);
         formError.hidden = true;
-        saveButton.disabled = false;
-        saveButton.textContent = 'Save';
+        saving = false;
+        saveButton.textContent = 'Simpan';
+        updateDateDisplay();
+        updateSaveState();
         clearDraft();
       }
 
@@ -960,6 +1052,9 @@
         if (!signedIn) { askForAccount(); return; }
         formError.hidden = true;
         restoreDraft();
+        syncDateBounds();
+        updateDateDisplay();
+        updateSaveState();
         form.hidden = false;
         // Photos travel through the platform's file storage. Where there is
         // no platform shell to ask, say so instead of failing at Save.
@@ -969,10 +1064,9 @@
           photoNote.hidden = photosAvailable;
         }
         if (modal) return;
-        if (window.unNative && typeof window.unNative.presentModal === 'function') {
-          modal = window.unNative.presentModal({
+        if (window.unNative && typeof window.unNative.presentSheet === 'function') {
+          modal = window.unNative.presentSheet({
             contentEl: form,
-            dismissible: true,
             onDismiss: function () {
               modal = null;
               form.hidden = true;
@@ -1010,16 +1104,41 @@
       // and a year that no longer matches the day clears the day.
       dateInput.addEventListener('change', function () {
         if (dateInput.value) yearInput.value = dateInput.value.slice(0, 4);
+        syncDateBounds();
+        updateDateDisplay();
+        updateSaveState();
         saveDraft();
       });
       yearInput.addEventListener('input', function () {
+        var digits = yearInput.value.replace(/\D/g, '').slice(0, 4);
+        if (digits !== yearInput.value) yearInput.value = digits;
         if (dateInput.value && yearInput.value && dateInput.value.slice(0, 4) !== yearInput.value) {
           dateInput.value = '';
+          updateDateDisplay();
         }
+        syncDateBounds();
+        updateSaveState();
         saveDraft();
       });
-      [titleInput, bodyInput].forEach(function (input) {
-        input.addEventListener('input', saveDraft);
+      titleInput.addEventListener('input', function () {
+        updateSaveState();
+        saveDraft();
+      });
+      bodyInput.addEventListener('input', saveDraft);
+      dateClear.addEventListener('click', function () {
+        dateInput.value = '';
+        updateDateDisplay();
+        saveDraft();
+      });
+      // The transparent date field sits over the link, so a tap lands on the
+      // native control and opens the phone's calendar.
+      dateInput.addEventListener('click', function () {
+        if (typeof dateInput.showPicker !== 'function') { revealDateField(); return; }
+        try {
+          dateInput.showPicker();
+        } catch (e) {
+          revealDateField();
+        }
       });
 
       function uploadPhoto(file) {
@@ -1048,28 +1167,27 @@
       form.addEventListener('submit', function (event) {
         event.preventDefault();
         formError.hidden = true;
-        saveButton.disabled = true;
-        saveButton.textContent = 'Saving';
 
         var year = yearInput.value.trim();
         if (!titleInput.value.trim()) {
-          showFormError('Give the memory a title.');
-          saveButton.disabled = false;
-          saveButton.textContent = 'Save';
+          showFormError('Beri kenangan ini judul.');
+          updateSaveState();
           return;
         }
         if (!/^\d{4}$/.test(year)) {
-          showFormError('Enter the year it happened, like 1962.');
-          saveButton.disabled = false;
-          saveButton.textContent = 'Save';
+          showFormError('Isi tahun kejadiannya, misalnya 1962.');
+          updateSaveState();
           return;
         }
-        if (!bodyInput.value.trim()) {
-          showFormError('Write the story of what happened.');
-          saveButton.disabled = false;
-          saveButton.textContent = 'Save';
+        if (Number(year) < 1800 || Number(year) > today.getFullYear()) {
+          showFormError('Tahun harus antara 1800 dan ' + today.getFullYear() + '.');
+          updateSaveState();
           return;
         }
+
+        saving = true;
+        saveButton.disabled = true;
+        saveButton.textContent = 'Menyimpan';
 
         var precision = dateInput.value ? 'day' : 'year';
         var happenedOn = dateInput.value || (year + '-01-01');
@@ -1119,11 +1237,12 @@
               // memory so its highlight is not wiped by a second render.
               closeForm(true);
               saveMemory(outcome.data.memory);
-              toast('Cerita tersimpan');
+              toast('Kenangan tersimpan');
               return;
             }
-            saveButton.disabled = false;
-            saveButton.textContent = 'Save';
+            saving = false;
+            saveButton.textContent = 'Simpan';
+            updateSaveState();
             if (outcome.status === 400 && outcome.data && outcome.data.message) {
               showFormError(outcome.data.message);
               return;
@@ -1132,31 +1251,32 @@
               askForAccount();
               return;
             }
-            showFormError("Your memory wasn't saved. Check your connection and try again.");
+            showFormError('Kenangan belum tersimpan. Periksa koneksi lalu coba lagi.');
           })
           .catch(function (err) {
-            saveButton.disabled = false;
-            saveButton.textContent = 'Save';
+            saving = false;
+            saveButton.textContent = 'Simpan';
+            updateSaveState();
             if (err && err.message === 'photos_unavailable') {
               photoIdle.hidden = true;
               photoPreview.hidden = true;
               photoNote.hidden = false;
-              showFormError("Photos aren't available here. Remove the photo to save the story.");
+              showFormError('Foto tidak tersedia di sini. Hapus fotonya untuk menyimpan kenangan.');
               return;
             }
             if (pendingPhoto && pendingVoice) {
-              showFormError("The photo or the voice note couldn't be uploaded. Try again, or remove one to save the story.");
+              showFormError('Foto atau rekaman suara tidak bisa diunggah. Coba lagi, atau hapus salah satunya untuk menyimpan kenangan.');
               return;
             }
             if (pendingPhoto) {
-              showFormError("The photo couldn't be uploaded. Try again, or remove it to save the story.");
+              showFormError('Foto tidak bisa diunggah. Coba lagi, atau hapus fotonya untuk menyimpan kenangan.');
               return;
             }
             if (pendingVoice) {
-              showFormError("The voice note couldn't be uploaded. Try again, or remove it to save the story.");
+              showFormError('Rekaman suara tidak bisa diunggah. Coba lagi, atau hapus rekamannya untuk menyimpan kenangan.');
               return;
             }
-            showFormError("Your memory wasn't saved. Check your connection and try again.");
+            showFormError('Kenangan belum tersimpan. Periksa koneksi lalu coba lagi.');
           });
       });
 
@@ -1169,16 +1289,21 @@
         });
         activePerson = null;
         render();
-        announce.textContent = 'Cerita tersimpan';
+        announce.textContent = 'Kenangan tersimpan';
         var element = timeline.querySelector('[data-memory="' + memory.id + '"]');
         if (element) {
           element.scrollIntoView({ block: 'center' });
-          element.classList.add('rounded-lg', 'bg-accent/10');
+          element.classList.add('memory-arrive', 'rounded-lg', 'bg-accent/10');
+          element.addEventListener('animationend', function () {
+            element.classList.remove('memory-arrive');
+          }, { once: true });
           setTimeout(function () {
             element.classList.remove('rounded-lg', 'bg-accent/10');
           }, 2000);
         }
       }
+
+      renderPeopleChips();
 
       var firstLoad = load();
       if (window.usernode && typeof window.usernode.ready === 'function') {

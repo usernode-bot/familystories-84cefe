@@ -30,6 +30,12 @@
       ]
     },
     {
+      "id": "form.title",
+      "name": "Add-memory form is titled Kenangan baru",
+      "path": "/",
+      "expectSelector": "#memory-form [data-form-title]"
+    },
+    {
       "name": "First screen explains the app",
       "path": "/",
       "expectText": "Simpan cerita keluarga, dari generasi ke generasi"

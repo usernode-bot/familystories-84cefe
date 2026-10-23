@@ -141,13 +141,15 @@ change follows it, and updates it when a request changes the look on purpose.
 
 - **Palette:** accent: ink blue (`--accent`, like the ink on an old family
   letter) for the primary button and the timeline dots; brand yellow
-  (`--marker` / `--on-marker`) for the year markers; neutrals: warm greys
-  (`--ground`, `--surface`, `--raised`, `--fg`, `--muted`, `--line`).
+  (`--marker` / `--on-marker`) for the year markers; neutrals: warm cream
+  paper (`--ground`, `--surface`, `--raised`, `--fg`, `--muted`, `--line`),
+  in both the light and the dark look.
 - **Signature element:** the timeline itself, a line down the page with a
   yellow year tab and an ink dot at each memory, so the family reads its
   story in the order it happened. A memory's photo is a wide card under its
   date; its voice note is the browser's own player under a "Voice note · 1:12"
-  line; the people tagged on it are quiet pills.
+  line; the people tagged on it are quiet pills. A new memory eases into
+  its place and a "Kenangan tersimpan" message confirms it.
 - **Filter row:** a sideways-scrolling row of chips above the timeline.
   "Everyone" is the accent-filled one when active; the rest are outlined.
 - **Type scale:** `text-title`, `text-heading`, `text-body`, `text-small`
@@ -164,12 +166,17 @@ a dark value (named in `tailwind.config.js`), and a few components
 Re-theme by changing the token values there, keeping every text pair at
 4.5:1 or more in both looks.
 
-The add-memory form is presented by the native UI kit
-(`unNative.presentModal`), so it rides above the on-screen keyboard and
-scrolls inside the card; its Cancel and Save sit at the top. Where the kit
-is not available the same form opens inline as a card. The kit's own
-colours are pointed at this app's tokens in `styles/tailwind-input.css`
-(`--un-accent`, `--un-sheet-bg`, ...).
+The add-memory form is presented by the native UI kit's bottom sheet
+(`unNative.presentSheet`), so it rises from the bottom with rounded
+corners and rides above the on-screen keyboard. Its fields run in the
+order a memory is told: Apa yang terjadi, Kapan?, Ceritanya (opsional),
+then the photo and voice buttons and the family chips. Simpan sits in a
+bar pinned to the bottom of the sheet and stays disabled until a title
+and a year are filled in; Batal is a plain text button at the top. The
+story is optional, so a memory saved with just a title and a year shows
+no story text. Where the kit is not available the same form opens inline
+as a card. The kit's own colours are pointed at this app's tokens in
+`styles/tailwind-input.css` (`--un-accent`, `--un-sheet-bg`, ...).
 
 - Colour comes only from the tokens (`bg-ground`, `bg-surface`,
   `text-fg`, `text-muted`, `border-line`, `bg-accent` with

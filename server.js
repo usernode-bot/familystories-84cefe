@@ -44,7 +44,7 @@ function photoUrlOrNull(value) {
 function peopleOrError(input) {
   if (input === undefined || input === null) return { people: [] };
   if (!Array.isArray(input)) {
-    return { error: 'people_invalid', message: 'The family members could not be read.' };
+    return { error: 'people_invalid', message: 'Anggota keluarga tidak bisa dibaca.' };
   }
   const people = [];
   const seen = new Set();
@@ -53,14 +53,14 @@ function peopleOrError(input) {
     const name = raw.trim().replace(/\s+/g, ' ');
     if (!name) continue;
     if (name.length > 40) {
-      return { error: 'person_too_long', message: 'Keep each name to 40 characters or fewer.' };
+      return { error: 'person_too_long', message: 'Setiap nama maksimal 40 karakter.' };
     }
     const key = name.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
     people.push(name);
     if (people.length > 8) {
-      return { error: 'too_many_people', message: 'Tag up to 8 people on one memory.' };
+      return { error: 'too_many_people', message: 'Tandai paling banyak 8 orang pada satu kenangan.' };
     }
   }
   return { people };
@@ -415,7 +415,7 @@ function validateMemory(input, now) {
 
   if (!title) return { error: 'title_required', message: 'Beri cerita ini judul.' };
   if (title.length > 120) return { error: 'title_too_long', message: 'Judul maksimal 120 karakter.' };
-  if (!body) return { error: 'story_required', message: 'Tulis cerita tentang apa yang terjadi.' };
+  // The story is optional: a title and a year are enough for a memory.
   if (body.length > 5000) return { error: 'story_too_long', message: 'Cerita maksimal 5.000 karakter.' };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return { error: 'date_invalid', message: 'Isi tahun kejadiannya.' };
@@ -429,7 +429,7 @@ function validateMemory(input, now) {
     return { error: 'date_invalid', message: 'Tanggal itu tidak ada. Periksa kembali.' };
   }
   if (precision === 'year' && (month !== 1 || day !== 1)) {
-    return { error: 'date_invalid', message: 'A memory with only a year is stored from 1 January. Check the year.' };
+    return { error: 'date_invalid', message: 'Kenangan yang hanya berisi tahun disimpan mulai 1 Januari. Periksa tahunnya.' };
   }
   if (ms < Date.UTC(1800, 0, 1)) {
     return { error: 'date_too_early', message: 'Tanggal tidak boleh sebelum 1 Januari 1800.' };
@@ -465,15 +465,15 @@ app.post(
     if (!AUDIO_TYPES.has(contentType)) {
       return res.status(415).json({
         error: 'audio_type',
-        message: "That recording format isn't supported. Try again in another browser.",
+        message: 'Format rekaman itu tidak didukung. Coba lagi di browser lain.',
       });
     }
     const bytes = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
     if (bytes.length < 128) {
-      return res.status(400).json({ error: 'audio_empty', message: 'That recording came through empty. Try again.' });
+      return res.status(400).json({ error: 'audio_empty', message: 'Rekaman itu kosong. Coba lagi.' });
     }
     if (bytes.length > AUDIO_MAX_BYTES) {
-      return res.status(413).json({ error: 'audio_too_large', message: 'That recording is too long. Keep it under two minutes.' });
+      return res.status(413).json({ error: 'audio_too_large', message: 'Rekamannya terlalu panjang. Maksimal dua menit.' });
     }
     const asked = Number(req.query.duration_ms);
     const durationMs = Number.isFinite(asked) ? Math.max(0, Math.min(AUDIO_MAX_MS, Math.round(asked))) : 0;
@@ -547,7 +547,7 @@ app.post('/api/memories', async (req, res) => {
 
   const photoUrl = photoUrlOrNull(input.photo_url);
   if (input.photo_url && !photoUrl) {
-    return res.status(400).json({ error: 'photo_invalid', message: 'That photo could not be attached. Try choosing it again.' });
+    return res.status(400).json({ error: 'photo_invalid', message: 'Foto itu tidak bisa dilampirkan. Coba pilih lagi.' });
   }
   const photoId = typeof input.photo_id === 'string' && input.photo_id.length <= 64 ? input.photo_id : null;
   const audioId = typeof input.audio_id === 'string' && /^[a-f0-9]{32}$/.test(input.audio_id)
@@ -567,7 +567,7 @@ app.post('/api/memories', async (req, res) => {
         await client.query('ROLLBACK');
         return res.status(400).json({
           error: 'audio_invalid',
-          message: 'The voice note could not be attached. Try recording it again.',
+          message: 'Rekaman suara tidak bisa dilampirkan. Coba rekam lagi.',
         });
       }
       audioDuration = held.rows[0].duration_ms;
@@ -616,11 +616,11 @@ app.use((err, _req, res, next) => {
   if (err.type === 'entity.too.large') {
     return res.status(413).json({
       error: 'audio_too_large',
-      message: 'That recording is too long. Keep it under two minutes.',
+      message: 'Rekamannya terlalu panjang. Maksimal dua menit.',
     });
   }
   if (err.type === 'entity.parse.failed') {
-    return res.status(400).json({ error: 'body_invalid', message: 'That did not come through. Try again.' });
+    return res.status(400).json({ error: 'body_invalid', message: 'Kiriman tidak sampai. Coba lagi.' });
   }
   console.error('request failed:', err);
   return res.status(500).json({ error: 'server_error' });
