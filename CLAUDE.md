@@ -100,19 +100,35 @@ tables you've marked private), etc.
 Turn family voices into stories and a family tree
 
 FamilyStories is one shared timeline for the whole family: anyone with a
-Homeroom account can add a memory (a title, the story and the day it
-happened), and every relative reads them in the order the moments
-happened, oldest first, grouped under the year.
+Homeroom account can add a memory (a title, the story, the year it happened,
+and optionally the exact day, a photo, a voice note and the family members
+who were there), and every relative reads them in the order the moments
+happened, oldest first, grouped under the year. A row of chips filters the
+timeline to one family member.
 
 - Memories live in the `memories` table (created on boot in `server.js`),
   marked `staging:private`. `happened_on` is a calendar day with no time
   zone and is always selected with `to_char(...)` so `pg` never turns it
-  into a JS `Date` and shifts the day.
+  into a JS `Date` and shifts the day. `date_precision` is `day`, or `year`
+  when the family only knows the year (the stored day is then 1 January and
+  the timeline shows "Some time in 1962").
+- `people` is a `TEXT[]` of family-role names typed by hand (Grandpa, Mum,
+  Aku). They are not Homeroom accounts, so never look them up in the user
+  directory.
+- Photos go through the platform's file storage (`usernode.uploadFile`,
+  `visibility: 'public'`, matching the guest-readable timeline) after being
+  downscaled in the page; only `photo_url` / `photo_id` are stored.
+- A voice note lives in `memory_audio`, also `staging:private`: the platform's
+  storage takes images only, so a recording (two minutes at most) is kept in
+  the app's own database and served from `GET /api/memories/:id/audio`.
+  Pending recordings that were never attached to a memory are deleted a day
+  later on boot.
 - `GET /api/memories` is readable by guests; `POST /api/memories` needs a
   signed-in member. Guests who tap "Add a memory" are asked for an account
   first, through `usernode.askForAccount`.
-- Staging seeds three obviously fake memories ("Staging demo: ..."), on boot
-  and only when `USERNODE_ENV=staging`.
+- Staging seeds three obviously fake memories ("Staging demo: ..."), with
+  placeholder photos and a generated two-second tone, on boot and only when
+  `USERNODE_ENV=staging`.
 
 ## Design
 
@@ -125,7 +141,11 @@ change follows it, and updates it when a request changes the look on purpose.
   (`--ground`, `--surface`, `--raised`, `--fg`, `--muted`, `--line`).
 - **Signature element:** the timeline itself, a line down the page with a
   yellow year tab and an ink dot at each memory, so the family reads its
-  story in the order it happened.
+  story in the order it happened. A memory's photo is a wide card under its
+  date; its voice note is the browser's own player under a "Voice note · 1:12"
+  line; the people tagged on it are quiet pills.
+- **Filter row:** a sideways-scrolling row of chips above the timeline.
+  "Everyone" is the accent-filled one when active; the rest are outlined.
 - **Type scale:** `text-title`, `text-heading`, `text-body`, `text-small`
   (change their sizes in `tailwind.config.js` if you must, not their number).
   Titles and stories use `font-serif`; dates, labels and buttons stay in the
@@ -134,9 +154,18 @@ change follows it, and updates it when a request changes the look on purpose.
 The kit is in `styles/tailwind-input.css`: colour tokens with a light and
 a dark value (named in `tailwind.config.js`), and a few components
 (`btn-primary`, `btn-secondary`, `field`, `list` and `list-row`,
-`card`, `section-label`, `skeleton`, `state-empty`, `state-error`).
+`card`, `section-label`, `skeleton`, `state-empty`, `state-error`,
+`timeline`, `filter-bar` / `filter-chip`, `person-tag`, `memory-photo`,
+`memory-voice`).
 Re-theme by changing the token values there, keeping every text pair at
 4.5:1 or more in both looks.
+
+The add-memory form is presented by the native UI kit
+(`unNative.presentModal`), so it rides above the on-screen keyboard and
+scrolls inside the card; its Cancel and Save sit at the top. Where the kit
+is not available the same form opens inline as a card. The kit's own
+colours are pointed at this app's tokens in `styles/tailwind-input.css`
+(`--un-accent`, `--un-sheet-bg`, ...).
 
 - Colour comes only from the tokens (`bg-ground`, `bg-surface`,
   `text-fg`, `text-muted`, `border-line`, `bg-accent` with

@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const crypto = require('crypto');
 const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
 
@@ -9,9 +10,70 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 const IS_STAGING = process.env.USERNODE_ENV === 'staging';
 
+// A voice note is short on purpose: the platform's file storage takes images
+// only, so the recording lives in this app's own database. Two minutes of
+// compressed speech is a few hundred KB.
+const AUDIO_MAX_MS = 120000;
+const AUDIO_MAX_BYTES = 4 * 1024 * 1024;
+const AUDIO_TYPES = new Set([
+  'audio/webm',
+  'audio/ogg',
+  'audio/mp4',
+  'audio/mpeg',
+  'audio/wav',
+  'audio/x-wav',
+  'audio/aac',
+  'audio/x-m4a',
+]);
+
+// A photo is a URL from the platform's file storage. Nothing but an http(s)
+// URL or a platform-relative file path is stored, so a memory can never carry
+// a `javascript:` or `data:` payload that another relative's browser would
+// run.
+function photoUrlOrNull(value) {
+  if (typeof value !== 'string') return null;
+  const url = value.trim();
+  if (!url || url.length > 2048) return null;
+  if (/^https?:\/\/\S+$/i.test(url)) return url;
+  if (/^\/app-files\/[A-Za-z0-9._-]+$/.test(url)) return url;
+  return null;
+}
+
+// The members a memory is tagged with. Free text (Grandpa, Mum, Aku), because
+// these are family roles rather than Homeroom accounts.
+function peopleOrError(input) {
+  if (input === undefined || input === null) return { people: [] };
+  if (!Array.isArray(input)) {
+    return { error: 'people_invalid', message: 'The family members could not be read.' };
+  }
+  const people = [];
+  const seen = new Set();
+  for (const raw of input) {
+    if (typeof raw !== 'string') continue;
+    const name = raw.trim().replace(/\s+/g, ' ');
+    if (!name) continue;
+    if (name.length > 40) {
+      return { error: 'person_too_long', message: 'Keep each name to 40 characters or fewer.' };
+    }
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    people.push(name);
+    if (people.length > 8) {
+      return { error: 'too_many_people', message: 'Tag up to 8 people on one memory.' };
+    }
+  }
+  return { people };
+}
+
 // Memories are family stories: personal information, so the table is
 // `staging:private` (schema on staging, no production rows). Created on boot,
 // idempotently, before the app starts listening.
+//
+// `memory_audio` holds a memory's voice note. The platform's file storage
+// accepts images only, so a short recording is kept here instead: capped at
+// two minutes and a few hundred KB, marked private like the memories
+// themselves.
 async function migrate() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS memories (
@@ -23,29 +85,100 @@ async function migrate() {
       happened_on DATE NOT NULL,
       created_at  TIMESTAMPTZ NOT NULL
     );
+    ALTER TABLE memories ADD COLUMN IF NOT EXISTS date_precision TEXT NOT NULL DEFAULT 'day';
+    ALTER TABLE memories ADD COLUMN IF NOT EXISTS people TEXT[] NOT NULL DEFAULT '{}';
+    ALTER TABLE memories ADD COLUMN IF NOT EXISTS photo_url TEXT;
+    ALTER TABLE memories ADD COLUMN IF NOT EXISTS photo_id TEXT;
+    DO $$ BEGIN
+      ALTER TABLE memories ADD CONSTRAINT memories_date_precision_check
+        CHECK (date_precision IN ('day', 'year'));
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END $$;
     CREATE INDEX IF NOT EXISTS memories_happened_on_idx
       ON memories (happened_on, created_at, id);
     COMMENT ON TABLE memories IS 'staging:private';
+
+    CREATE TABLE IF NOT EXISTS memory_audio (
+      id           TEXT PRIMARY KEY,
+      user_id      TEXT NOT NULL,
+      memory_id    BIGINT UNIQUE REFERENCES memories(id) ON DELETE CASCADE,
+      content_type TEXT NOT NULL,
+      duration_ms  INTEGER NOT NULL,
+      bytes        BYTEA NOT NULL,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS memory_audio_user_idx ON memory_audio (user_id);
+    COMMENT ON TABLE memory_audio IS 'staging:private';
   `);
+
+  // A recording that was uploaded but never attached to a memory (the person
+  // changed their mind, or the save failed) is dropped a day later.
+  await pool.query(
+    `DELETE FROM memory_audio WHERE memory_id IS NULL AND created_at < now() - interval '1 day'`
+  );
 
   if (IS_STAGING) {
     // Obviously fake rows so the staging preview shows a filled timeline.
     // Fixed ids far above the BIGSERIAL sequence, so they never collide with
     // a real memory; nothing in the app reads them to decide anything.
-    await pool.query(`
-      INSERT INTO memories (id, user_id, username, title, body, happened_on, created_at) VALUES
+    // Photos are inline placeholder images: platform-stored files are not
+    // copied into staging.
+    const demoPhoto =
+      'data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%20640%20360%27%3E%3Cdefs%3E%3ClinearGradient%20id=%27g%27%20x1=%270%27%20y1=%270%27%20x2=%270%27%20y2=%271%27%3E%3Cstop%20offset=%270%27%20stop-color=%27%23f0e2c4%27/%3E%3Cstop%20offset=%271%27%20stop-color=%27%23c2a274%27/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20width=%27640%27%20height=%27360%27%20fill=%27url(%23g)%27/%3E%3Ccircle%20cx=%27490%27%20cy=%2792%27%20r=%2742%27%20fill=%27%23fff8e6%27%20opacity=%270.8%27/%3E%3Cpath%20d=%27M0%20296%20L150%20206%20L300%20276%20L450%20196%20L640%20296%20L640%20360%20L0%20360%20Z%27%20fill=%27%23614a32%27%20opacity=%270.5%27/%3E%3C/svg%3E';
+
+    await pool.query(
+      `INSERT INTO memories (id, user_id, username, title, body, happened_on, date_precision, people, photo_url, created_at) VALUES
         (900001, 'staging-demo-1', 'staging-demo-user', 'Staging demo: Grandma opens her bakery',
          E'A made-up memory for the staging preview. The shop had one oven and a bell over the door that rang every time somebody came in.',
-         '1962-04-14', '2026-01-01T09:00:00Z'),
+         '1962-04-14', 'day', ARRAY['Grandma', 'Grandpa'], $1, '2026-01-01T09:00:00Z'),
         (900002, 'staging-demo-2', 'staging-demo-cousin', 'Staging demo: The family moves to the coast',
          E'A made-up memory for the staging preview. Everything fit in one van, and the cat rode the whole way on the front seat.',
-         '1978-08-02', '2026-01-01T09:01:00Z'),
+         '1978-08-02', 'day', ARRAY['Mum', 'Uncle Ray'], $1, '2026-01-01T09:01:00Z'),
         (900003, 'staging-demo-3', 'staging-demo-aunt', 'Staging demo: First reunion in the park',
          E'A made-up memory for the staging preview. Forty people, three picnic tables pushed together and a cake shaped like the old house.',
-         '1995-07-22', '2026-01-01T09:02:00Z')
-      ON CONFLICT (id) DO NOTHING;
-    `);
+         '1995-01-01', 'year', ARRAY['Grandma', 'Mum'], NULL, '2026-01-01T09:02:00Z')
+      ON CONFLICT (id) DO NOTHING`,
+      [demoPhoto]
+    );
+
+    // A two-second placeholder tone for the first demo memory, so the voice
+    // player is reviewable in the preview without anyone recording.
+    await pool.query(
+      `INSERT INTO memory_audio (id, user_id, memory_id, content_type, duration_ms, bytes, created_at)
+       VALUES ('stagingdemoaudio000000000000000001', 'staging-demo-1', 900001, 'audio/wav', 2000, $1, '2026-01-01T09:00:00Z')
+       ON CONFLICT (id) DO NOTHING`,
+      [demoVoiceWav()]
+    );
   }
+}
+
+// A short, quiet tone as a mono 8-bit WAV. Only ever used for the staging
+// demo, so the audio player and its length label can be seen in a preview.
+function demoVoiceWav() {
+  const rate = 8000;
+  const seconds = 2;
+  const samples = rate * seconds;
+  const buffer = Buffer.alloc(44 + samples);
+  buffer.write('RIFF', 0);
+  buffer.writeUInt32LE(36 + samples, 4);
+  buffer.write('WAVE', 8);
+  buffer.write('fmt ', 12);
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20); // PCM
+  buffer.writeUInt16LE(1, 22); // mono
+  buffer.writeUInt32LE(rate, 24);
+  buffer.writeUInt32LE(rate, 28);
+  buffer.writeUInt16LE(1, 32); // block align
+  buffer.writeUInt16LE(8, 34); // bits per sample
+  buffer.write('data', 36);
+  buffer.writeUInt32LE(samples, 40);
+  for (let i = 0; i < samples; i++) {
+    const t = i / rate;
+    const fade = Math.max(0, Math.min(1, t * 6, (seconds - t) * 6));
+    const value = Math.sin(2 * Math.PI * 440 * t) * 0.18 * fade;
+    buffer[44 + i] = Math.round(128 + value * 127);
+  }
+  return buffer;
 }
 
 // The two requests the platform sends when a person deletes their account or
@@ -143,6 +276,7 @@ app.post('/usernode/user-deletion', async (req, res) => {
   const claims = platformClaims(req, 'user-deletion');
   if (!claims) return res.sendStatus(403);
   try {
+    await pool.query('DELETE FROM memory_audio WHERE user_id = $1', [String(claims.id)]);
     await pool.query('DELETE FROM memories WHERE user_id = $1', [String(claims.id)]);
     return res.sendStatus(204);
   } catch (err) {
@@ -156,11 +290,20 @@ app.get('/usernode/user-export', async (req, res) => {
   if (!claims) return res.sendStatus(403);
   try {
     const result = await pool.query(
-      `SELECT id, username, title, body, to_char(happened_on, 'YYYY-MM-DD') AS happened_on, created_at
+      `SELECT id, username, title, body, to_char(happened_on, 'YYYY-MM-DD') AS happened_on,
+              date_precision, people, photo_url, created_at
          FROM memories WHERE user_id = $1 ORDER BY happened_on ASC, created_at ASC, id ASC`,
       [String(claims.id)]
     );
-    return res.json({ userId: String(claims.id), tables: { memories: result.rows } });
+    const audio = await pool.query(
+      `SELECT id, memory_id, content_type, duration_ms, created_at, encode(bytes, 'base64') AS bytes_base64
+         FROM memory_audio WHERE user_id = $1 ORDER BY created_at ASC`,
+      [String(claims.id)]
+    );
+    return res.json({
+      userId: String(claims.id),
+      tables: { memories: result.rows, memory_audio: audio.rows },
+    });
   } catch (err) {
     console.error('user-export failed:', err);
     return res.sendStatus(500);
@@ -234,13 +377,18 @@ app.use((req, res, next) => {
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 // One shared family timeline, oldest memory first. Guests may read it; only a
-// signed-in member may add to it.
+// signed-in member may add to it. The recording itself never travels in this
+// list: `audio_duration_ms` is enough to draw its player.
 app.get('/api/memories', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, username, title, body, to_char(happened_on, 'YYYY-MM-DD') AS happened_on, created_at
-         FROM memories
-        ORDER BY happened_on ASC, created_at ASC, id ASC
+      `SELECT m.id, m.username, m.title, m.body,
+              to_char(m.happened_on, 'YYYY-MM-DD') AS happened_on,
+              m.date_precision, m.people, m.photo_url, m.created_at,
+              a.duration_ms AS audio_duration_ms
+         FROM memories m
+         LEFT JOIN memory_audio a ON a.memory_id = m.id
+        ORDER BY m.happened_on ASC, m.created_at ASC, m.id ASC
         LIMIT 2000`
     );
     return res.json({ memories: result.rows, signedIn: !!req.user });
@@ -255,13 +403,16 @@ function validateMemory(input, now) {
   const title = typeof input.title === 'string' ? input.title.trim() : '';
   const body = typeof input.body === 'string' ? input.body.trim() : '';
   const date = typeof input.happened_on === 'string' ? input.happened_on.trim() : '';
+  // 'year' means the family knows the year but not the day; the stored day is
+  // then 1 January of that year, and the timeline shows just the year.
+  const precision = input.date_precision === 'year' ? 'year' : 'day';
 
   if (!title) return { error: 'title_required', message: 'Give the memory a title.' };
   if (title.length > 120) return { error: 'title_too_long', message: 'Keep the title to 120 characters or fewer.' };
   if (!body) return { error: 'story_required', message: 'Write the story of what happened.' };
   if (body.length > 5000) return { error: 'story_too_long', message: 'Keep the story to 5,000 characters or fewer.' };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return { error: 'date_invalid', message: 'Enter the day it happened.' };
+    return { error: 'date_invalid', message: 'Enter the year it happened.' };
   }
   const year = Number(date.slice(0, 4));
   const month = Number(date.slice(5, 7));
@@ -270,6 +421,9 @@ function validateMemory(input, now) {
   const rebuilt = new Date(ms);
   if (rebuilt.getUTCFullYear() !== year || rebuilt.getUTCMonth() !== month - 1 || rebuilt.getUTCDate() !== day) {
     return { error: 'date_invalid', message: 'That is not a real day. Check the date.' };
+  }
+  if (precision === 'year' && (month !== 1 || day !== 1)) {
+    return { error: 'date_invalid', message: 'A memory with only a year is stored from 1 January. Check the year.' };
   }
   if (ms < Date.UTC(1800, 0, 1)) {
     return { error: 'date_too_early', message: 'The date can’t be earlier than 1 January 1800.' };
@@ -280,8 +434,102 @@ function validateMemory(input, now) {
   if (ms > todayUtc + 86400000) {
     return { error: 'date_in_future', message: 'The date can’t be in the future.' };
   }
-  return { title, body, happened_on: date };
+  const people = peopleOrError(input.people);
+  if (people.error) return people;
+  return {
+    title,
+    body,
+    happened_on: date,
+    date_precision: precision,
+    people: people.people,
+  };
 }
+
+// A recording, before it belongs to a memory: `usernode.uploadFile` takes
+// images only, so the browser posts the audio here first and then names the
+// returned id when it saves the memory.
+app.post(
+  '/api/memories/audio',
+  express.raw({ type: () => true, limit: '4mb' }),
+  async (req, res) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'account_required', action: 'record a voice note' });
+    }
+    const contentType = (req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+    if (!AUDIO_TYPES.has(contentType)) {
+      return res.status(415).json({
+        error: 'audio_type',
+        message: "That recording format isn't supported. Try again in another browser.",
+      });
+    }
+    const bytes = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    if (bytes.length < 128) {
+      return res.status(400).json({ error: 'audio_empty', message: 'That recording came through empty. Try again.' });
+    }
+    if (bytes.length > AUDIO_MAX_BYTES) {
+      return res.status(413).json({ error: 'audio_too_large', message: 'That recording is too long. Keep it under two minutes.' });
+    }
+    const asked = Number(req.query.duration_ms);
+    const durationMs = Number.isFinite(asked) ? Math.max(0, Math.min(AUDIO_MAX_MS, Math.round(asked))) : 0;
+    try {
+      const id = crypto.randomBytes(16).toString('hex');
+      await pool.query(
+        `INSERT INTO memory_audio (id, user_id, content_type, duration_ms, bytes)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [id, String(req.user.id), contentType, durationMs, bytes]
+      );
+      return res.status(201).json({ id, duration_ms: durationMs });
+    } catch (err) {
+      console.error('audio save failed:', err);
+      return res.status(500).json({ error: 'save_failed' });
+    }
+  }
+);
+
+// The recording itself. Guests may listen, like they may read the story, and
+// it never changes once saved, so it can be cached for good.
+app.get('/api/memories/:id/audio', async (req, res) => {
+  if (!/^\d+$/.test(req.params.id)) return res.sendStatus(404);
+  try {
+    const result = await pool.query(
+      'SELECT content_type, bytes FROM memory_audio WHERE memory_id = $1',
+      [req.params.id]
+    );
+    if (!result.rows.length) return res.sendStatus(404);
+    const buffer = Buffer.from(result.rows[0].bytes);
+    res.set('Content-Type', result.rows[0].content_type);
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    res.set('Accept-Ranges', 'bytes');
+
+    // A player seeks with a Range request; answer it so scrubbing works.
+    const match = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
+    if (match) {
+      let start = match[1] === '' ? null : Number(match[1]);
+      let end = match[2] === '' ? null : Number(match[2]);
+      if (start === null && end !== null) {
+        start = Math.max(0, buffer.length - end);
+        end = buffer.length - 1;
+      } else if (start !== null && end === null) {
+        end = buffer.length - 1;
+      }
+      if (start === null || start >= buffer.length || start > end) {
+        res.set('Content-Range', `bytes */${buffer.length}`);
+        return res.status(416).end();
+      }
+      end = Math.min(end, buffer.length - 1);
+      res.status(206);
+      res.set('Content-Range', `bytes ${start}-${end}/${buffer.length}`);
+      res.set('Content-Length', String(end - start + 1));
+      return res.end(buffer.subarray(start, end + 1));
+    }
+
+    res.set('Content-Length', String(buffer.length));
+    return res.end(buffer);
+  } catch (err) {
+    console.error('audio fetch failed:', err);
+    return res.status(500).json({ error: 'load_failed' });
+  }
+});
 
 app.post('/api/memories', async (req, res) => {
   if (!req.user) {
@@ -291,18 +539,85 @@ app.post('/api/memories', async (req, res) => {
   const valid = validateMemory(input, req.now);
   if (valid.error) return res.status(400).json(valid);
 
+  const photoUrl = photoUrlOrNull(input.photo_url);
+  if (input.photo_url && !photoUrl) {
+    return res.status(400).json({ error: 'photo_invalid', message: 'That photo could not be attached. Try choosing it again.' });
+  }
+  const photoId = typeof input.photo_id === 'string' && input.photo_id.length <= 64 ? input.photo_id : null;
+  const audioId = typeof input.audio_id === 'string' && /^[a-f0-9]{32}$/.test(input.audio_id)
+    ? input.audio_id : null;
+
+  const client = await pool.connect();
   try {
-    const result = await pool.query(
-      `INSERT INTO memories (user_id, username, title, body, happened_on, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, username, title, body, to_char(happened_on, 'YYYY-MM-DD') AS happened_on, created_at`,
-      [String(req.user.id), String(req.user.username || 'someone'), valid.title, valid.body, valid.happened_on, req.now]
+    await client.query('BEGIN');
+    let audioDuration = null;
+    if (audioId) {
+      const held = await client.query(
+        `SELECT duration_ms FROM memory_audio
+          WHERE id = $1 AND user_id = $2 AND memory_id IS NULL FOR UPDATE`,
+        [audioId, String(req.user.id)]
+      );
+      if (!held.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({
+          error: 'audio_invalid',
+          message: 'The voice note could not be attached. Try recording it again.',
+        });
+      }
+      audioDuration = held.rows[0].duration_ms;
+    }
+
+    const result = await client.query(
+      `INSERT INTO memories
+         (user_id, username, title, body, happened_on, date_precision, people, photo_url, photo_id, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       RETURNING id, username, title, body, to_char(happened_on, 'YYYY-MM-DD') AS happened_on,
+                 date_precision, people, photo_url, created_at`,
+      [
+        String(req.user.id),
+        String(req.user.username || 'someone'),
+        valid.title,
+        valid.body,
+        valid.happened_on,
+        valid.date_precision,
+        valid.people,
+        photoUrl,
+        photoUrl ? photoId : null,
+        req.now,
+      ]
     );
-    return res.status(201).json({ memory: result.rows[0] });
+
+    const memory = result.rows[0];
+    if (audioId) {
+      await client.query('UPDATE memory_audio SET memory_id = $1 WHERE id = $2', [memory.id, audioId]);
+      memory.audio_duration_ms = audioDuration;
+    }
+    await client.query('COMMIT');
+    return res.status(201).json({ memory });
   } catch (err) {
+    try { await client.query('ROLLBACK'); } catch {}
     console.error('memory save failed:', err);
     return res.status(500).json({ error: 'save_failed' });
+  } finally {
+    client.release();
   }
+});
+
+// A recording past the size limit, or a malformed JSON body, answers with a
+// plain message the form can show instead of a stack trace.
+app.use((err, _req, res, next) => {
+  if (!err) return next();
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({
+      error: 'audio_too_large',
+      message: 'That recording is too long. Keep it under two minutes.',
+    });
+  }
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'body_invalid', message: 'That did not come through. Try again.' });
+  }
+  console.error('request failed:', err);
+  return res.status(500).json({ error: 'server_error' });
 });
 
 // The template ships no favicon file; index.html carries an inline SVG
