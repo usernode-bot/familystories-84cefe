@@ -63,6 +63,22 @@
   [hidden]:where(:not([hidden="until-found"])) {
     display: none !important;
   }
+
+  /* Point the native UI kit (presentModal, toast, pressed states) at this
+     app's palette, so its surfaces match the app in both looks. The values
+     follow --accent, --surface and --line, which .dark redefines.
+     `html:root` rather than `:root` because native.css is loaded after this
+     stylesheet and sets the same variables at the same specificity; the
+     extra element selector makes these win in both looks without fighting
+     the kit's own rules. */
+  html:root {
+    --un-accent: rgb(var(--accent));
+    --un-accent-contrast: rgb(var(--on-accent));
+    --un-surface: rgb(var(--surface));
+    --un-sheet-bg: rgb(var(--surface));
+    --un-hairline: rgb(var(--line));
+    --un-muted: rgb(var(--muted));
+  }
 }
 
 /* ── Components ───────────────────────────────────────────────────────────
@@ -159,5 +175,39 @@
   .memory::before {
     content: "";
     @apply absolute -left-8 top-1.5 h-3 w-3 rounded-full border-2 border-ground bg-accent;
+  }
+
+  /* The photo on a memory: a wide card above the title. Tall portraits are
+     cropped rather than left to fill the whole screen. */
+  .memory-photo {
+    @apply mt-1 max-h-80 w-full rounded-lg border border-line bg-raised object-cover;
+  }
+
+  /* A memory's voice note: its length, then the browser's own player. */
+  .memory-voice {
+    @apply flex flex-col gap-1;
+  }
+
+  /* Which family members a memory is tagged with, as quiet pills. */
+  .person-tag {
+    @apply inline-flex items-center gap-1 rounded-full bg-raised px-3 py-1 text-small text-fg;
+  }
+
+  /* The row of family-member filters above the timeline. Scrolls sideways on
+     a phone instead of wrapping into several lines. */
+  .filter-bar {
+    @apply -mx-4 flex gap-2 overflow-x-auto px-4 pb-1;
+  }
+  .filter-chip {
+    @apply inline-flex min-h-11 shrink-0 items-center rounded-full border border-line bg-surface px-4
+      text-small font-medium text-fg hover:bg-raised;
+  }
+  .filter-chip[aria-pressed="true"] {
+    @apply border-accent bg-accent text-on-accent hover:bg-accent;
+  }
+
+  /* The dot that pulses while a voice note is being recorded. */
+  .voice-dot {
+    @apply inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-danger;
   }
 }

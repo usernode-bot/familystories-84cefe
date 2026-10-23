@@ -4,6 +4,12 @@
     "image": "brand/icon.png",
     "emoji": "🎙️"
   },
+  "permissions": [
+    {
+      "capability": "microphone",
+      "reason": "Records a family member telling a story"
+    }
+  ],
   "secrets": [],
   "visibility": {
     "build": "public",
@@ -33,6 +39,24 @@
       "path": "/?demo=1",
       "expectSelector": "[data-example]",
       "expectText": "Mulai cerita pertama"
+    },
+    {
+      "id": "timeline.people-filter",
+      "name": "Timeline can be filtered by family member",
+      "path": "/",
+      "expectSelector": "[data-person-filter]"
+    },
+    {
+      "id": "timeline.photo",
+      "name": "A memory shows its photo",
+      "path": "/",
+      "expectSelector": "[data-memory] img.memory-photo"
+    },
+    {
+      "id": "timeline.voice",
+      "name": "A memory plays its voice note",
+      "path": "/",
+      "expectSelector": "[data-memory] audio"
     }
   ]
 }

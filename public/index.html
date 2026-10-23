@@ -2,8 +2,8 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
   <script>
   // usernode-dev-console@1
   (function () {
@@ -78,6 +78,11 @@
        classes, swap this link for the platform-hosted engine instead:
        <script src="/usernode-tailwind/v1/tailwind.js"></script> -->
   <link rel="stylesheet" href="/tailwind.css">
+  <!-- The native UI kit: the add-memory form is a modal it presents (so it
+       rides above the on-screen keyboard), and "Saved" is a toast. Centrally
+       hosted and loaded by RELATIVE path, like the bridge. -->
+  <link rel="stylesheet" href="/usernode-native/v1/native.css">
+  <script src="/usernode-native/v1/native.js"></script>
   <!-- The platform bridge, centrally hosted and loaded by RELATIVE path (the
        handler in server.js serves it under a plain "node server.js"; the
        platform's edge answers it everywhere else). Never vendor it and never
@@ -121,26 +126,9 @@
 
     <p id="announce" class="sr-only" aria-live="polite"></p>
 
-    <!-- Add a memory: the only card on the page. -->
-    <form id="memory-form" class="card flex flex-col gap-3" hidden>
-      <h2 class="font-serif text-heading">Tambah cerita</h2>
-      <label class="flex flex-col gap-1 text-small font-medium text-fg" for="title">Apa yang terjadi
-        <input id="title" name="title" class="field font-normal" type="text" maxlength="120"
-               placeholder="cth. Kakek membeli mobil pertamanya" autocomplete="off" required>
-      </label>
-      <label class="flex flex-col gap-1 text-small font-medium text-fg" for="happened-on">Kapan terjadinya
-        <input id="happened-on" name="happened_on" class="field font-normal" type="date" required>
-      </label>
-      <label class="flex flex-col gap-1 text-small font-medium text-fg" for="body">Ceritanya
-        <textarea id="body" name="body" class="field min-h-28 font-normal" rows="5" maxlength="5000"
-                  placeholder="cth. Siapa saja yang hadir, di mana, dan apa yang masih diceritakan orang" required></textarea>
-      </label>
-      <p id="form-error" class="text-small text-danger" role="alert" hidden></p>
-      <div class="flex flex-wrap gap-2">
-        <button id="save" class="btn-primary" type="submit">Simpan cerita</button>
-        <button id="cancel" class="btn-secondary" type="button">Batal</button>
-      </div>
-    </form>
+    <!-- Filter by the family members tagged on memories. Filled in by the
+         script once memories are loaded; hidden when nothing is tagged. -->
+    <div id="filters" class="filter-bar" role="group" aria-label="Filter memories by family member" hidden></div>
 
     <!-- Loading: grey shapes where the memories will go. -->
     <div id="loading" class="flex flex-col gap-6" aria-hidden="true">
@@ -205,28 +193,155 @@
       </div>
     </div>
 
+    <div id="filter-empty" class="state-empty" hidden>
+      <p id="filter-empty-text" class="text-body text-muted">No memories from this person yet.</p>
+      <button id="filter-clear" class="btn-secondary" type="button">Show all memories</button>
+    </div>
+
     <ol id="timeline" class="timeline" hidden></ol>
   </main>
+
+  <!-- Add a memory. Presented as a modal by the native kit when it is
+       available (keyboard avoidance and scrolling come with it); otherwise
+       it opens inline as a card. -->
+  <form id="memory-form" class="flex flex-col gap-3" hidden>
+    <!-- iOS-style bar: Cancel and Save stay at the top, where the keyboard
+         cannot cover them. -->
+    <div class="flex items-center justify-between gap-2 border-b border-line pb-3">
+      <button id="cancel" class="btn-secondary px-3" type="button">Cancel</button>
+      <h2 class="font-serif text-heading">Add a memory</h2>
+      <button id="save" class="btn-primary px-3" type="submit">Save</button>
+    </div>
+
+    <label class="flex flex-col gap-1 text-small font-medium text-fg" for="title">What happened
+      <input id="title" name="title" class="field font-normal" type="text" maxlength="120"
+             placeholder="e.g. Grandpa buys his first car" autocomplete="off" required>
+    </label>
+
+    <div class="flex flex-col gap-1">
+      <label class="text-small font-medium text-fg" for="year">Year it happened</label>
+      <input id="year" name="year" class="field font-normal" type="number" inputmode="numeric"
+             min="1800" step="1" placeholder="e.g. 1962" required>
+    </div>
+
+    <label class="flex flex-col gap-1 text-small font-medium text-fg" for="happened-on">Exact day (optional)
+      <input id="happened-on" name="happened_on" class="field font-normal" type="date">
+    </label>
+    <p class="-mt-2 text-small text-muted">Leave it empty if you only know the year.</p>
+
+    <label class="flex flex-col gap-1 text-small font-medium text-fg" for="body">The story
+      <textarea id="body" name="body" class="field min-h-28 font-normal" rows="5" maxlength="5000"
+                placeholder="e.g. Who was there, where it was, what people still say about it" required></textarea>
+    </label>
+
+    <div class="flex flex-col gap-2">
+      <span class="text-small font-medium text-fg">Photo (optional)</span>
+      <div id="photo-idle">
+        <button id="photo-pick" class="btn-secondary" type="button">Choose a photo</button>
+      </div>
+      <div id="photo-preview" class="flex items-center gap-3" hidden>
+        <img id="photo-thumb" class="h-16 w-16 rounded-lg border border-line object-cover" alt="The photo you chose">
+        <button id="photo-remove" class="btn-secondary" type="button">Remove photo</button>
+      </div>
+      <p id="photo-note" class="text-small text-muted" hidden>Photos aren't available here. You can still add the story.</p>
+      <input id="photo-input" class="sr-only" type="file" accept="image/*" tabindex="-1" aria-hidden="true">
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <span class="text-small font-medium text-fg">Voice note (optional)</span>
+      <div id="voice-idle" class="flex flex-wrap items-center gap-2">
+        <button id="voice-record" class="btn-secondary" type="button">Record a voice note</button>
+        <span class="text-small text-muted">Up to two minutes.</span>
+      </div>
+      <div id="voice-recording" class="flex items-center gap-3" hidden>
+        <span class="voice-dot motion-safe:animate-pulse" aria-hidden="true"></span>
+        <span id="voice-timer" class="text-body tabular-nums">0:00</span>
+        <button id="voice-stop" class="btn-secondary" type="button">Stop</button>
+      </div>
+      <div id="voice-preview" class="flex flex-col gap-2" hidden>
+        <span id="voice-label" class="text-small text-muted">Voice note</span>
+        <audio id="voice-audio" class="w-full" controls preload="metadata"></audio>
+        <button id="voice-remove" class="btn-secondary w-fit" type="button">Remove voice note</button>
+      </div>
+      <p id="voice-note" class="text-small text-muted" role="status" hidden></p>
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <label class="text-small font-medium text-fg" for="person-input">Who was there (optional)</label>
+      <div class="flex gap-2">
+        <input id="person-input" class="field font-normal" type="text" maxlength="40"
+               placeholder="e.g. Grandpa" autocomplete="off">
+        <button id="person-add" class="btn-secondary shrink-0 px-3" type="button">Add</button>
+      </div>
+      <ul id="people-chips" class="flex flex-wrap gap-2" hidden></ul>
+    </div>
+
+    <p id="form-error" class="text-small text-danger" role="alert" hidden></p>
+  </form>
 
   <script>
     (function () {
       var params = new URLSearchParams(location.search);
       var token = params.get('token');
+      var DRAFT_KEY = 'familystories:draft';
+      var MAX_RECORDING_MS = 120000;
+
       // Staging only: ask the API for the timeline without its seeded demo
       // rows, so the empty first screen can be seen in a preview.
       var demo = params.get('demo') === '1';
       var signedIn = true;
       var memories = [];
+      var activePerson = null;
+      var pendingPhoto = null;
+      var pendingVoice = null;
+      var selectedPeople = [];
+      var recording = null;
+      var lastRecording = null;
+      var modal = null;
+
       var form = document.getElementById('memory-form');
       var openButton = document.getElementById('open-form');
       var emptyButton = document.getElementById('empty-add');
       var saveButton = document.getElementById('save');
+      var cancelButton = document.getElementById('cancel');
       var formError = document.getElementById('form-error');
       var announce = document.getElementById('announce');
       var timeline = document.getElementById('timeline');
+      var filters = document.getElementById('filters');
       var loading = document.getElementById('loading');
       var empty = document.getElementById('empty');
       var errorBox = document.getElementById('error');
+      var filterEmpty = document.getElementById('filter-empty');
+      var filterEmptyText = document.getElementById('filter-empty-text');
+      var main = document.querySelector('main');
+
+      var titleInput = document.getElementById('title');
+      var yearInput = document.getElementById('year');
+      var dateInput = document.getElementById('happened-on');
+      var bodyInput = document.getElementById('body');
+
+      var photoInput = document.getElementById('photo-input');
+      var photoPick = document.getElementById('photo-pick');
+      var photoIdle = document.getElementById('photo-idle');
+      var photoPreview = document.getElementById('photo-preview');
+      var photoThumb = document.getElementById('photo-thumb');
+      var photoRemove = document.getElementById('photo-remove');
+      var photoNote = document.getElementById('photo-note');
+
+      var voiceIdle = document.getElementById('voice-idle');
+      var voiceRecord = document.getElementById('voice-record');
+      var voiceRecording = document.getElementById('voice-recording');
+      var voiceTimer = document.getElementById('voice-timer');
+      var voiceStop = document.getElementById('voice-stop');
+      var voicePreview = document.getElementById('voice-preview');
+      var voiceLabel = document.getElementById('voice-label');
+      var voiceAudio = document.getElementById('voice-audio');
+      var voiceRemove = document.getElementById('voice-remove');
+      var voiceNote = document.getElementById('voice-note');
+
+      var personInput = document.getElementById('person-input');
+      var personAdd = document.getElementById('person-add');
+      var peopleChips = document.getElementById('people-chips');
 
       var today = new Date(
         (window.usernode && typeof window.usernode.now === 'function' && window.usernode.now()) ||
@@ -235,9 +350,9 @@
       var maxDate = today.getFullYear() + '-' +
         String(today.getMonth() + 1).padStart(2, '0') + '-' +
         String(today.getDate()).padStart(2, '0');
-      var dateInput = document.getElementById('happened-on');
       dateInput.min = '1800-01-01';
       dateInput.max = maxDate;
+      yearInput.max = String(today.getFullYear());
 
       function request(method, url, body) {
         var headers = {};
@@ -250,12 +365,24 @@
         });
       }
 
-      // Exactly one of the loading, error, empty and timeline states shows.
+      function toast(message) {
+        if (window.unNative && typeof window.unNative.toast === 'function') {
+          window.unNative.toast(message);
+        } else {
+          announce.textContent = message;
+        }
+      }
+
+      // Exactly one of the loading, error, empty, filtered-empty and timeline
+      // states shows.
       function show(state) {
         loading.hidden = state !== 'loading';
         errorBox.hidden = state !== 'error';
         empty.hidden = state !== 'empty';
+        filterEmpty.hidden = state !== 'filter-empty';
         timeline.hidden = state !== 'ready';
+        // One primary button on the page: the empty state carries its own.
+        openButton.hidden = state === 'error' || state === 'empty';
       }
 
       function formatDate(iso) {
@@ -266,6 +393,42 @@
         }).format(date);
       }
 
+      function formatDuration(ms) {
+        var total = Math.max(0, Math.round(ms / 1000));
+        var minutes = Math.floor(total / 60);
+        var seconds = String(total % 60).padStart(2, '0');
+        return minutes + ':' + seconds;
+      }
+
+      // A recording is fetched on the first tap on its player: the element
+      // cannot send the identity token, so the page's authenticated fetch
+      // brings it down and the player plays the blob.
+      function attachAudioLoader(player, memoryId, label) {
+        var state = 'idle';
+        function load() {
+          if (state !== 'idle') return;
+          state = 'loading';
+          request('GET', '/api/memories/' + memoryId + '/audio')
+            .then(function (response) {
+              if (!response.ok) throw new Error('audio_failed');
+              return response.blob();
+            })
+            .then(function (blob) {
+              player.src = URL.createObjectURL(blob);
+              state = 'ready';
+              var started = player.play();
+              if (started && typeof started.catch === 'function') started.catch(function () {});
+            })
+            .catch(function () {
+              state = 'idle';
+              label.textContent = "This voice note couldn't be loaded. Try again.";
+            });
+        }
+        player.addEventListener('pointerdown', load);
+        player.addEventListener('keydown', load);
+        player.addEventListener('play', load);
+      }
+
       function buildMemory(memory) {
         var item = document.createElement('li');
         item.className = 'memory';
@@ -273,37 +436,133 @@
 
         var date = document.createElement('p');
         date.className = 'text-small text-muted';
-        date.textContent = formatDate(memory.happened_on);
+        // A memory dated by its year alone says so, rather than repeating the
+        // year tab above it.
+        date.textContent = memory.date_precision === 'year'
+          ? 'Some time in ' + memory.happened_on.slice(0, 4)
+          : formatDate(memory.happened_on);
+        item.appendChild(date);
+
+        if (memory.photo_url) {
+          var photo = document.createElement('img');
+          photo.className = 'memory-photo';
+          photo.src = memory.photo_url;
+          photo.alt = 'Photo for "' + memory.title + '"';
+          photo.loading = 'lazy';
+          photo.decoding = 'async';
+          item.appendChild(photo);
+        }
 
         var title = document.createElement('h2');
         title.className = 'font-serif text-heading';
         title.textContent = memory.title;
+        item.appendChild(title);
 
         var story = document.createElement('p');
         story.className = 'whitespace-pre-line font-serif text-body leading-7';
         story.textContent = memory.body;
+        item.appendChild(story);
+
+        if (memory.people && memory.people.length) {
+          item.setAttribute('data-people', memory.people.join(', '));
+          var people = document.createElement('ul');
+          people.className = 'flex flex-wrap gap-1.5';
+          memory.people.forEach(function (name) {
+            var chip = document.createElement('li');
+            chip.className = 'person-tag';
+            chip.textContent = name;
+            people.appendChild(chip);
+          });
+          item.appendChild(people);
+        }
+
+        if (memory.audio_duration_ms !== null && memory.audio_duration_ms !== undefined) {
+          var voice = document.createElement('div');
+          voice.className = 'memory-voice';
+          var voiceText = document.createElement('span');
+          voiceText.className = 'text-small text-muted';
+          voiceText.textContent = 'Voice note · ' + formatDuration(memory.audio_duration_ms);
+          var player = document.createElement('audio');
+          player.className = 'w-full';
+          player.controls = true;
+          player.preload = 'none';
+          player.setAttribute('aria-label', 'Voice note');
+          // An <audio> request carries no headers, and the API needs the
+          // signed-in token, so the recording is fetched the same way as the
+          // timeline and played from a blob.
+          attachAudioLoader(player, memory.id, voiceText);
+          voice.appendChild(voiceText);
+          voice.appendChild(player);
+          item.appendChild(voice);
+        }
 
         var author = document.createElement('p');
         author.className = 'text-small text-muted';
         author.textContent = 'Ditambahkan oleh ' + memory.username;
-
-        item.appendChild(date);
-        item.appendChild(title);
-        item.appendChild(story);
         item.appendChild(author);
+
         return item;
       }
 
+      function familyMembers() {
+        var names = [];
+        var seen = {};
+        memories.forEach(function (memory) {
+          (memory.people || []).forEach(function (name) {
+            var key = String(name).toLowerCase();
+            if (seen[key]) return;
+            seen[key] = true;
+            names.push(name);
+          });
+        });
+        names.sort(function (a, b) { return a.localeCompare(b); });
+        return names;
+      }
+
+      function filterChip(label, person) {
+        var chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'filter-chip';
+        chip.textContent = label;
+        chip.setAttribute('data-person-filter', person === null ? '' : person);
+        chip.setAttribute('aria-pressed', String(activePerson === person));
+        chip.addEventListener('click', function () {
+          activePerson = person;
+          render();
+        });
+        return chip;
+      }
+
+      function renderFilters() {
+        var people = familyMembers();
+        if (activePerson && people.indexOf(activePerson) === -1) activePerson = null;
+        filters.textContent = '';
+        filters.hidden = !people.length;
+        if (!people.length) return;
+        filters.appendChild(filterChip('Everyone', null));
+        people.forEach(function (name) {
+          filters.appendChild(filterChip(name, name));
+        });
+      }
+
       function render() {
+        renderFilters();
         timeline.textContent = '';
+        var visible = activePerson
+          ? memories.filter(function (memory) {
+              return (memory.people || []).indexOf(activePerson) !== -1;
+            })
+          : memories;
+
         var year = null;
         var list = null;
-        memories.forEach(function (memory) {
+        visible.forEach(function (memory) {
           var memoryYear = memory.happened_on.slice(0, 4);
           if (memoryYear !== year) {
             year = memoryYear;
             var group = document.createElement('li');
             group.className = 'timeline-year';
+            group.setAttribute('data-year', memoryYear);
             var tab = document.createElement('span');
             tab.className = 'year-tab';
             tab.textContent = memoryYear;
@@ -315,15 +574,20 @@
           }
           list.appendChild(buildMemory(memory));
         });
-        show(memories.length ? 'ready' : 'empty');
-        // One primary button on the screen: the empty state has its own.
-        openButton.hidden = !memories.length;
+
+        if (!memories.length) {
+          show('empty');
+        } else if (!visible.length) {
+          filterEmptyText.textContent = 'No memories from ' + activePerson + ' yet.';
+          show('filter-empty');
+        } else {
+          show('ready');
+        }
       }
 
       function load() {
         show('loading');
-        openButton.hidden = false;
-        request('GET', '/api/memories' + (demo ? '?demo=1' : ''))
+        return request('GET', '/api/memories' + (demo ? '?demo=1' : ''))
           .then(function (response) {
             if (!response.ok) throw new Error('load_failed');
             return response.json();
@@ -335,7 +599,6 @@
           })
           .catch(function () {
             show('error');
-            openButton.hidden = true;
           });
       }
 
@@ -345,73 +608,555 @@
         }
       }
 
-      function hideForm() {
-        form.hidden = true;
+      function showFormError(message) {
+        formError.textContent = message;
+        formError.hidden = false;
+      }
+
+      // ── The draft ──────────────────────────────────────────────────────
+      // Typed text survives a reload: granting the microphone for the first
+      // time reopens the app's frame, and losing a written story then would
+      // be the app's fault, not the browser's.
+      function saveDraft() {
+        try {
+          sessionStorage.setItem(DRAFT_KEY, JSON.stringify({
+            title: titleInput.value,
+            year: yearInput.value,
+            day: dateInput.value,
+            body: bodyInput.value,
+            people: selectedPeople.slice(),
+          }));
+        } catch (e) {}
+      }
+
+      function restoreDraft() {
+        try {
+          if (titleInput.value || bodyInput.value || yearInput.value || dateInput.value || selectedPeople.length) return;
+          var raw = sessionStorage.getItem(DRAFT_KEY);
+          if (!raw) return;
+          var draft = JSON.parse(raw) || {};
+          if (draft.title) titleInput.value = draft.title;
+          if (draft.year) yearInput.value = draft.year;
+          if (draft.day) dateInput.value = draft.day;
+          if (draft.body) bodyInput.value = draft.body;
+          if (Array.isArray(draft.people)) setPeople(draft.people);
+        } catch (e) {}
+      }
+
+      function clearDraft() {
+        try { sessionStorage.removeItem(DRAFT_KEY); } catch (e) {}
+      }
+
+      // ── Photo ──────────────────────────────────────────────────────────
+      // Camera photos are downscaled in the page before upload: the platform
+      // stores the file as sent, and a 12 MB phone photo is not usable here.
+      function downscale(file) {
+        return new Promise(function (resolve) {
+          var url = URL.createObjectURL(file);
+          var image = new Image();
+          image.onload = function () {
+            var max = 1600;
+            var scale = Math.min(1, max / Math.max(image.width, image.height));
+            var width = Math.max(1, Math.round(image.width * scale));
+            var height = Math.max(1, Math.round(image.height * scale));
+            var canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            canvas.getContext('2d').drawImage(image, 0, 0, width, height);
+            URL.revokeObjectURL(url);
+            canvas.toBlob(function (blob) {
+              if (!blob) return resolve(file);
+              resolve(new File([blob], 'memory-photo.jpg', { type: 'image/jpeg' }));
+            }, 'image/jpeg', 0.85);
+          };
+          image.onerror = function () {
+            URL.revokeObjectURL(url);
+            resolve(file);
+          };
+          image.src = url;
+        });
+      }
+
+      function clearPhoto() {
+        if (pendingPhoto && pendingPhoto.url) URL.revokeObjectURL(pendingPhoto.url);
+        pendingPhoto = null;
+        photoThumb.removeAttribute('src');
+        photoPreview.hidden = true;
+        photoIdle.hidden = false;
+        photoInput.value = '';
+      }
+
+      photoPick.addEventListener('click', function () {
+        if (!(window.usernode && typeof window.usernode.uploadFile === 'function')) {
+          photoNote.hidden = false;
+          photoPick.disabled = true;
+          return;
+        }
+        photoInput.click();
+      });
+
+      photoInput.addEventListener('change', function () {
+        var file = photoInput.files && photoInput.files[0];
+        photoInput.value = '';
+        if (!file) return;
+        if (!/^image\//.test(file.type)) {
+          showFormError('Choose an image file: JPG, PNG or WebP.');
+          return;
+        }
+        downscale(file).then(function (small) {
+          clearPhoto();
+          pendingPhoto = { file: small, url: URL.createObjectURL(small) };
+          photoThumb.src = pendingPhoto.url;
+          photoPreview.hidden = false;
+          photoIdle.hidden = true;
+        });
+      });
+
+      photoRemove.addEventListener('click', clearPhoto);
+
+      // ── Voice note ─────────────────────────────────────────────────────
+      function setVoiceNote(message) {
+        voiceNote.textContent = message || '';
+        voiceNote.hidden = !message;
+      }
+
+      function voiceIdleState() {
+        voiceIdle.hidden = false;
+        voiceRecording.hidden = true;
+        voicePreview.hidden = true;
+      }
+
+      function pickAudioType() {
+        if (!window.MediaRecorder || typeof window.MediaRecorder.isTypeSupported !== 'function') return '';
+        var options = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'];
+        for (var i = 0; i < options.length; i++) {
+          if (window.MediaRecorder.isTypeSupported(options[i])) return options[i];
+        }
+        return '';
+      }
+
+      function stopRecording(discard) {
+        // Mark the take that was just stopped too: its `stop` event can land
+        // after a Cancel has already cleared the form.
+        if (discard && lastRecording) lastRecording.discarded = true;
+        if (!recording) return;
+        var current = recording;
+        recording = null;
+        current.discarded = !!discard;
+        clearInterval(current.timer);
+        try { current.recorder.stop(); } catch (e) {}
+        try {
+          current.stream.getTracks().forEach(function (track) { track.stop(); });
+        } catch (e) {}
+      }
+
+      function discardRecording() {
+        stopRecording(true);
+        if (pendingVoice && pendingVoice.url) URL.revokeObjectURL(pendingVoice.url);
+        pendingVoice = null;
+        voiceAudio.removeAttribute('src');
+        setVoiceNote('');
+        voiceIdleState();
+        voiceRecord.disabled = false;
+      }
+
+      function startRecording(stream) {
+        var mime = pickAudioType();
+        var recorder;
+        try {
+          recorder = mime
+            ? new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 24000 })
+            : new MediaRecorder(stream);
+        } catch (e) {
+          stream.getTracks().forEach(function (track) { track.stop(); });
+          voiceRecord.disabled = false;
+          setVoiceNote("Recording didn't start. Try again in another browser.");
+          return;
+        }
+
+        var chunks = [];
+        var startedAt = Date.now();
+        var state = { recorder: recorder, stream: stream, timer: null };
+
+        recorder.addEventListener('dataavailable', function (event) {
+          if (event.data && event.data.size) chunks.push(event.data);
+        });
+
+        recorder.addEventListener('stop', function () {
+          clearInterval(state.timer);
+          stream.getTracks().forEach(function (track) { track.stop(); });
+          // Cancelled or reset while it was running: the recording is not the
+          // person's any more, so it must not turn up on the next memory.
+          if (state.discarded) return;
+          var duration = Date.now() - startedAt;
+          var type = recorder.mimeType || mime || 'audio/webm';
+          var blob = new Blob(chunks, { type: type });
+          voiceRecording.hidden = true;
+          voiceIdle.hidden = true;
+          if (blob.size < 128) {
+            voiceIdle.hidden = false;
+            voiceRecord.disabled = false;
+            setVoiceNote('That recording came through empty. Try again.');
+            return;
+          }
+          if (pendingVoice && pendingVoice.url) URL.revokeObjectURL(pendingVoice.url);
+          pendingVoice = { blob: blob, type: type, durationMs: Math.min(duration, MAX_RECORDING_MS) };
+          pendingVoice.url = URL.createObjectURL(blob);
+          voiceAudio.src = pendingVoice.url;
+          voiceLabel.textContent = 'Voice note · ' + formatDuration(pendingVoice.durationMs);
+          voicePreview.hidden = false;
+          setVoiceNote('Recording ready. Save the memory to keep it.');
+        });
+
+        recording = state;
+        lastRecording = state;
+        voiceIdle.hidden = true;
+        voicePreview.hidden = true;
+        voiceRecording.hidden = false;
+        voiceTimer.textContent = '0:00';
+        setVoiceNote('');
+        recorder.start();
+
+        state.timer = setInterval(function () {
+          var elapsed = Date.now() - startedAt;
+          voiceTimer.textContent = formatDuration(elapsed);
+          if (elapsed >= MAX_RECORDING_MS) stopRecording();
+        }, 250);
+      }
+
+      // The microphone is opened inside the tap that asks for it: that is the
+      // gesture phones require, and the first grant reopens the app frame, so
+      // the draft above is what carries the typed story across.
+      voiceRecord.addEventListener('click', function () {
+        setVoiceNote('');
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+          setVoiceNote("Recording isn't available in this browser. You can still add the story.");
+          return;
+        }
+        voiceRecord.disabled = true;
+
+        Promise.resolve()
+          .then(function () {
+            if (!(window.usernode && typeof window.usernode.requestPermission === 'function')) {
+              return { state: 'granted', active: true };
+            }
+            // Outside the platform shell this rejects; there the browser's
+            // own permission prompt for getUserMedia is all there is.
+            return window.usernode.requestPermission('microphone').catch(function () {
+              return { state: 'granted', active: true };
+            });
+          })
+          .then(function (answer) {
+            if (answer && answer.state !== 'granted') {
+              voiceRecord.disabled = false;
+              setVoiceNote(answer.reason === 'declined'
+                ? 'Microphone access is off. You can still add the photo and the story.'
+                : "This app can't use the microphone right now.");
+              return null;
+            }
+            if (answer && answer.active === false) {
+              // Granted just now: the platform reopens the frame so it takes
+              // effect. Nothing else to do here.
+              toast('Microphone allowed. The app will reopen.');
+              return null;
+            }
+            return navigator.mediaDevices.getUserMedia({ audio: true });
+          })
+          .then(function (stream) {
+            if (!stream) return;
+            startRecording(stream);
+          })
+          .catch(function () {
+            voiceRecord.disabled = false;
+            setVoiceNote('The microphone is blocked. Allow it for Homeroom in your browser settings and try again.');
+          });
+      });
+
+      voiceStop.addEventListener('click', function () {
+        stopRecording();
+        voiceRecord.disabled = false;
+      });
+
+      voiceRemove.addEventListener('click', function () {
+        discardRecording();
+      });
+
+      // ── Family members ─────────────────────────────────────────────────
+      function renderPeopleChips() {
+        peopleChips.textContent = '';
+        peopleChips.hidden = !selectedPeople.length;
+        selectedPeople.forEach(function (name, index) {
+          var chip = document.createElement('li');
+          chip.className = 'person-tag';
+          var text = document.createElement('span');
+          text.textContent = name;
+          var remove = document.createElement('button');
+          remove.type = 'button';
+          remove.className = 'un-touch-target -mr-1 flex h-6 w-6 items-center justify-center rounded-full text-muted hover:text-fg';
+          remove.setAttribute('aria-label', 'Remove ' + name);
+          remove.textContent = '×';
+          remove.addEventListener('click', function () {
+            selectedPeople.splice(index, 1);
+            renderPeopleChips();
+            saveDraft();
+          });
+          chip.appendChild(text);
+          chip.appendChild(remove);
+          peopleChips.appendChild(chip);
+        });
+      }
+
+      function setPeople(names) {
+        selectedPeople = names.slice(0, 8);
+        renderPeopleChips();
+      }
+
+      function addPerson() {
+        var name = personInput.value.trim().replace(/\s+/g, ' ');
+        personInput.value = '';
+        if (!name) return;
+        if (name.length > 40) {
+          showFormError('Keep each name to 40 characters or fewer.');
+          return;
+        }
+        var exists = selectedPeople.some(function (existing) {
+          return existing.toLowerCase() === name.toLowerCase();
+        });
+        if (exists) {
+          personInput.focus();
+          return;
+        }
+        if (selectedPeople.length >= 8) {
+          showFormError('Tag up to 8 people on one memory.');
+          return;
+        }
+        selectedPeople.push(name);
+        renderPeopleChips();
+        saveDraft();
+        personInput.focus();
+      }
+
+      personAdd.addEventListener('click', addPerson);
+      personInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          addPerson();
+        }
+      });
+
+      // ── The form ───────────────────────────────────────────────────────
+      function resetFormState() {
+        form.reset();
+        clearPhoto();
+        discardRecording();
+        setPeople([]);
         formError.hidden = true;
+        saveButton.disabled = false;
+        saveButton.textContent = 'Save';
+        clearDraft();
       }
 
       function openForm() {
         if (!signedIn) { askForAccount(); return; }
+        formError.hidden = true;
+        restoreDraft();
         form.hidden = false;
-        empty.hidden = true;
-        openButton.hidden = true;
-        document.getElementById('title').focus();
+        // Photos travel through the platform's file storage. Where there is
+        // no platform shell to ask, say so instead of failing at Save.
+        var photosAvailable = !!(window.usernode && typeof window.usernode.uploadFile === 'function');
+        if (!pendingPhoto) {
+          photoIdle.hidden = !photosAvailable;
+          photoNote.hidden = photosAvailable;
+        }
+        if (modal) return;
+        if (window.unNative && typeof window.unNative.presentModal === 'function') {
+          modal = window.unNative.presentModal({
+            contentEl: form,
+            dismissible: true,
+            onDismiss: function () {
+              modal = null;
+              form.hidden = true;
+              if (recording) stopRecording();
+            },
+          });
+          return;
+        }
+        // No kit: the form opens as a card above the timeline.
+        form.classList.add('card');
+        if (form.parentNode !== main) main.insertBefore(form, timeline);
+        titleInput.focus();
       }
 
-      function closeForm() {
-        hideForm();
-        form.reset();
-        if (memories.length) {
-          show('ready');
-          openButton.hidden = false;
-        } else {
-          show('empty');
-          openButton.hidden = true;
+      function closeForm(reset) {
+        if (reset) resetFormState();
+        if (modal) {
+          modal.dismiss();
+          modal = null;
         }
+        form.hidden = true;
+        render();
       }
 
       openButton.addEventListener('click', openForm);
       emptyButton.addEventListener('click', openForm);
-      document.getElementById('cancel').addEventListener('click', closeForm);
+      cancelButton.addEventListener('click', function () { closeForm(true); });
       document.getElementById('retry').addEventListener('click', load);
+      document.getElementById('filter-clear').addEventListener('click', function () {
+        activePerson = null;
+        render();
+      });
+
+      // The year and the exact day stay in step: a chosen day fills the year,
+      // and a year that no longer matches the day clears the day.
+      dateInput.addEventListener('change', function () {
+        if (dateInput.value) yearInput.value = dateInput.value.slice(0, 4);
+        saveDraft();
+      });
+      yearInput.addEventListener('input', function () {
+        if (dateInput.value && yearInput.value && dateInput.value.slice(0, 4) !== yearInput.value) {
+          dateInput.value = '';
+        }
+        saveDraft();
+      });
+      [titleInput, bodyInput].forEach(function (input) {
+        input.addEventListener('input', saveDraft);
+      });
+
+      function uploadPhoto(file) {
+        var upload = window.usernode && window.usernode.uploadFile;
+        if (typeof upload !== 'function') return Promise.reject(new Error('photos_unavailable'));
+        // Public, like the timeline itself: every relative reads these, and
+        // guests read memories too.
+        return upload(file, { visibility: 'public' });
+      }
+
+      function uploadVoice(voice) {
+        var headers = { 'content-type': voice.type || 'audio/webm' };
+        if (token) headers['x-usernode-token'] = token;
+        return fetch('/api/memories/audio?duration_ms=' + Math.round(voice.durationMs), {
+          method: 'POST',
+          headers: headers,
+          body: voice.blob,
+        }).then(function (response) {
+          return response.json().then(function (data) {
+            if (!response.ok) throw new Error((data && data.message) || 'upload_failed');
+            return data;
+          });
+        });
+      }
 
       form.addEventListener('submit', function (event) {
         event.preventDefault();
         formError.hidden = true;
         saveButton.disabled = true;
+        saveButton.textContent = 'Saving';
 
-        var payload = {
-          title: document.getElementById('title').value,
-          happened_on: dateInput.value,
-          body: document.getElementById('body').value,
-        };
+        var year = yearInput.value.trim();
+        if (!titleInput.value.trim()) {
+          showFormError('Give the memory a title.');
+          saveButton.disabled = false;
+          saveButton.textContent = 'Save';
+          return;
+        }
+        if (!/^\d{4}$/.test(year)) {
+          showFormError('Enter the year it happened, like 1962.');
+          saveButton.disabled = false;
+          saveButton.textContent = 'Save';
+          return;
+        }
+        if (!bodyInput.value.trim()) {
+          showFormError('Write the story of what happened.');
+          saveButton.disabled = false;
+          saveButton.textContent = 'Save';
+          return;
+        }
 
-        request('POST', '/api/memories', payload)
-          .then(function (response) {
-            return response.json().then(function (data) {
-              return { ok: response.ok, status: response.status, data: data };
-            });
+        var precision = dateInput.value ? 'day' : 'year';
+        var happenedOn = dateInput.value || (year + '-01-01');
+        var uploadedPhoto = null;
+
+        var photoStep = pendingPhoto
+          ? uploadPhoto(pendingPhoto.file).then(function (stored) {
+              uploadedPhoto = stored;
+              return { photo_url: stored.url, photo_id: stored.id };
+            })
+          : Promise.resolve({ photo_url: null, photo_id: null });
+
+        photoStep
+          .then(function (photo) {
+            return (pendingVoice ? uploadVoice(pendingVoice) : Promise.resolve(null))
+              .then(function (audio) {
+                return { photo: photo, audio: audio };
+              });
           })
           .then(function (result) {
-            if (result.ok && result.data && result.data.memory) return saveMemory(result.data.memory);
-            if (result.status === 400 && result.data && result.data.message) {
-              formError.textContent = result.data.message;
-              formError.hidden = false;
-              return;
-            }
-            if (result.status === 401) {
-              askForAccount();
-              saveButton.disabled = false;
-              return;
-            }
-            formError.textContent = "Ceritamu belum tersimpan. Periksa koneksi lalu coba lagi.";
-            formError.hidden = false;
-            saveButton.disabled = false;
+            return request('POST', '/api/memories', {
+              title: titleInput.value,
+              body: bodyInput.value,
+              happened_on: happenedOn,
+              date_precision: precision,
+              people: selectedPeople,
+              photo_url: result.photo.photo_url,
+              photo_id: result.photo.photo_id,
+              audio_id: result.audio ? result.audio.id : null,
+            }).then(function (response) {
+              return response.json().then(function (data) {
+                return { ok: response.ok, status: response.status, data: data };
+              });
+            }).then(function (outcome) {
+              // The photo is stored platform-side; a failed save should not
+              // leave it behind.
+              if (!outcome.ok && uploadedPhoto && window.usernode &&
+                  typeof window.usernode.deleteFile === 'function') {
+                window.usernode.deleteFile(uploadedPhoto.id).catch(function () {});
+              }
+              return outcome;
+            });
           })
-          .catch(function () {
-            formError.textContent = "Ceritamu belum tersimpan. Periksa koneksi lalu coba lagi.";
-            formError.hidden = false;
+          .then(function (outcome) {
+            if (outcome.ok && outcome.data && outcome.data.memory) {
+              // Close first (it re-renders the timeline), then add the saved
+              // memory so its highlight is not wiped by a second render.
+              closeForm(true);
+              saveMemory(outcome.data.memory);
+              toast('Cerita tersimpan');
+              return;
+            }
             saveButton.disabled = false;
+            saveButton.textContent = 'Save';
+            if (outcome.status === 400 && outcome.data && outcome.data.message) {
+              showFormError(outcome.data.message);
+              return;
+            }
+            if (outcome.status === 401) {
+              askForAccount();
+              return;
+            }
+            showFormError("Your memory wasn't saved. Check your connection and try again.");
+          })
+          .catch(function (err) {
+            saveButton.disabled = false;
+            saveButton.textContent = 'Save';
+            if (err && err.message === 'photos_unavailable') {
+              photoIdle.hidden = true;
+              photoPreview.hidden = true;
+              photoNote.hidden = false;
+              showFormError("Photos aren't available here. Remove the photo to save the story.");
+              return;
+            }
+            if (pendingPhoto && pendingVoice) {
+              showFormError("The photo or the voice note couldn't be uploaded. Try again, or remove one to save the story.");
+              return;
+            }
+            if (pendingPhoto) {
+              showFormError("The photo couldn't be uploaded. Try again, or remove it to save the story.");
+              return;
+            }
+            if (pendingVoice) {
+              showFormError("The voice note couldn't be uploaded. Try again, or remove it to save the story.");
+              return;
+            }
+            showFormError("Your memory wasn't saved. Check your connection and try again.");
           });
       });
 
@@ -422,10 +1167,8 @@
           if (a.created_at !== b.created_at) return a.created_at < b.created_at ? -1 : 1;
           return a.id - b.id;
         });
+        activePerson = null;
         render();
-        hideForm();
-        form.reset();
-        saveButton.disabled = false;
         announce.textContent = 'Cerita tersimpan';
         var element = timeline.querySelector('[data-memory="' + memory.id + '"]');
         if (element) {
@@ -437,8 +1180,11 @@
         }
       }
 
-      load();
+      var firstLoad = load();
+      if (window.usernode && typeof window.usernode.ready === 'function') {
+        window.usernode.ready(firstLoad);
+      }
     })();
   </script>
-</body></body>
+</body>
 </html>
