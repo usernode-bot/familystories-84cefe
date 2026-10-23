@@ -140,9 +140,10 @@ This app's look. The first real version fills in the blanks; every later
 change follows it, and updates it when a request changes the look on purpose.
 
 - **Palette:** accent: ink blue (`--accent`, like the ink on an old family
-  letter) for the primary button and the timeline dots; brand yellow
-  (`--marker` / `--on-marker`) for the year markers; neutrals: warm greys
-  (`--ground`, `--surface`, `--raised`, `--fg`, `--muted`, `--line`).
+  letter) for the primary button, chosen chips, links and the timeline dots;
+  brand yellow (`--marker` / `--on-marker`) for the year markers; neutrals:
+  warm cream (`--ground`, `--surface`, `--raised`, `--fg`, `--muted`,
+  `--line`), a sheet of old paper rather than white.
 - **Signature element:** the timeline itself, a line down the page with a
   yellow year tab and an ink dot at each memory, so the family reads its
   story in the order it happened. A memory's photo is a wide card under its
@@ -160,14 +161,17 @@ a dark value (named in `tailwind.config.js`), and a few components
 (`btn-primary`, `btn-secondary`, `field`, `list` and `list-row`,
 `card`, `section-label`, `skeleton`, `state-empty`, `state-error`,
 `timeline`, `filter-bar` / `filter-chip`, `person-tag`, `memory-photo`,
-`memory-voice`).
+`memory-voice`, `btn-quiet`, `year-field`, `media-button`, the sheet's
+`memory-sheet` / `sheet-head` / `sheet-body` / `sheet-foot`, and
+`memory-enter` for a just-saved card).
 Re-theme by changing the token values there, keeping every text pair at
 4.5:1 or more in both looks.
 
-The add-memory form is presented by the native UI kit
-(`unNative.presentModal`), so it rides above the on-screen keyboard and
-scrolls inside the card; its Cancel and Save sit at the top. Where the kit
-is not available the same form opens inline as a card. The kit's own
+The add-memory form is presented by the native UI kit as a bottom sheet
+(`unNative.presentSheet`), titled "Kenangan baru": its body scrolls and its
+footer, with "Simpan", stays at the bottom, so the button rides above the
+on-screen keyboard with the sheet. Where the kit is not available the same
+form opens inline as a card. The kit's own
 colours are pointed at this app's tokens in `styles/tailwind-input.css`
 (`--un-accent`, `--un-sheet-bg`, ...).
 

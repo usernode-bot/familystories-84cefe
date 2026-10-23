@@ -21,10 +21,12 @@ anywhere else.
 - **Filters.** A row of chips above the timeline holds "Everyone" plus every
   family member named on a memory; tapping one narrows the timeline to that
   person.
-- **Adding a memory** opens the native UI kit's modal with: what happened, the
-  year, an optional exact day, the story, an optional photo, an optional voice
-  note and the family members who were there. The server checks every rule the
-  form checks.
+- **Adding a memory** opens a bottom sheet from the native UI kit titled
+  "Kenangan baru": what happened, one big "Kapan?" year field with an optional
+  calendar link for the exact day, the story, a photo, a voice note, and the
+  family members who were there as chips. "Simpan" is pinned to the bottom of
+  the sheet and turns on once the title and the year are filled. The server
+  checks every rule the form checks.
 - **Photos** are downscaled in the page and uploaded through the platform's
   file storage (`usernode.uploadFile`); only the returned URL is stored. Where
   there is no platform shell the form says photos are unavailable and the
