@@ -44,7 +44,7 @@ function photoUrlOrNull(value) {
 function peopleOrError(input) {
   if (input === undefined || input === null) return { people: [] };
   if (!Array.isArray(input)) {
-    return { error: 'people_invalid', message: 'The family members could not be read.' };
+    return { error: 'people_invalid', message: 'Anggota keluarga tidak bisa dibaca.' };
   }
   const people = [];
   const seen = new Set();
@@ -53,14 +53,14 @@ function peopleOrError(input) {
     const name = raw.trim().replace(/\s+/g, ' ');
     if (!name) continue;
     if (name.length > 40) {
-      return { error: 'person_too_long', message: 'Keep each name to 40 characters or fewer.' };
+      return { error: 'person_too_long', message: 'Nama paling banyak 40 karakter.' };
     }
     const key = name.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
     people.push(name);
     if (people.length > 8) {
-      return { error: 'too_many_people', message: 'Tag up to 8 people on one memory.' };
+      return { error: 'too_many_people', message: 'Tandai paling banyak 8 orang dalam satu kenangan.' };
     }
   }
   return { people };
@@ -130,14 +130,14 @@ async function migrate() {
       `INSERT INTO memories (id, user_id, username, title, body, happened_on, date_precision, people, photo_url, created_at) VALUES
         (900001, 'staging-demo-1', 'staging-demo-user', 'Staging demo: Nenek membuka toko roti',
          E'Cerita contoh untuk pratinjau staging. Tokonya hanya punya satu oven, dan bel di atas pintu berbunyi setiap kali ada yang masuk.',
-         '1962-04-14', 'day', ARRAY['Grandma', 'Grandpa'], $1, '2026-01-01T09:00:00Z'),
+         '1962-04-14', 'day', ARRAY['Kakek', 'Nenek'], $1, '2026-01-01T09:00:00Z'),
         (900002, 'staging-demo-2', 'staging-demo-cousin', 'Staging demo: Keluarga pindah ke pesisir',
          E'Cerita contoh untuk pratinjau staging. Semua barang masuk satu mobil, dan kucing ikut duduk di kursi depan sepanjang jalan.',
-         '1978-08-02', 'day', ARRAY['Mum', 'Uncle Ray'], $1, '2026-01-01T09:01:00Z'),
+         '1978-08-02', 'day', ARRAY['Ibu', 'Om Ray'], $1, '2026-01-01T09:01:00Z'),
         (900003, 'staging-demo-3', 'staging-demo-aunt', 'Staging demo: Reuni pertama di taman',
          E'Cerita contoh untuk pratinjau staging. Empat puluh orang, tiga meja piknik disatukan, dan kue berbentuk rumah lama.',
-         '1995-01-01', 'year', ARRAY['Grandma', 'Mum'], NULL, '2026-01-01T09:02:00Z')
-      ON CONFLICT (id) DO NOTHING`,
+         '1995-01-01', 'year', ARRAY['Nenek', 'Ibu'], NULL, '2026-01-01T09:02:00Z')
+      ON CONFLICT (id) DO UPDATE SET people = EXCLUDED.people`,
       [demoPhoto]
     );
 
@@ -429,7 +429,7 @@ function validateMemory(input, now) {
     return { error: 'date_invalid', message: 'Tanggal itu tidak ada. Periksa kembali.' };
   }
   if (precision === 'year' && (month !== 1 || day !== 1)) {
-    return { error: 'date_invalid', message: 'A memory with only a year is stored from 1 January. Check the year.' };
+    return { error: 'date_invalid', message: 'Kenangan yang hanya punya tahun disimpan dari 1 Januari. Periksa tahunnya.' };
   }
   if (ms < Date.UTC(1800, 0, 1)) {
     return { error: 'date_too_early', message: 'Tanggal tidak boleh sebelum 1 Januari 1800.' };
@@ -465,15 +465,15 @@ app.post(
     if (!AUDIO_TYPES.has(contentType)) {
       return res.status(415).json({
         error: 'audio_type',
-        message: "That recording format isn't supported. Try again in another browser.",
+        message: 'Format rekaman ini belum didukung. Coba di browser lain.',
       });
     }
     const bytes = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
     if (bytes.length < 128) {
-      return res.status(400).json({ error: 'audio_empty', message: 'That recording came through empty. Try again.' });
+      return res.status(400).json({ error: 'audio_empty', message: 'Rekamannya kosong. Coba lagi.' });
     }
     if (bytes.length > AUDIO_MAX_BYTES) {
-      return res.status(413).json({ error: 'audio_too_large', message: 'That recording is too long. Keep it under two minutes.' });
+      return res.status(413).json({ error: 'audio_too_large', message: 'Rekaman terlalu panjang. Paling lama dua menit.' });
     }
     const asked = Number(req.query.duration_ms);
     const durationMs = Number.isFinite(asked) ? Math.max(0, Math.min(AUDIO_MAX_MS, Math.round(asked))) : 0;
@@ -539,7 +539,7 @@ app.get('/api/memories/:id/audio', async (req, res) => {
 
 app.post('/api/memories', async (req, res) => {
   if (!req.user) {
-    return res.status(401).json({ error: 'account_required', action: 'add a memory' });
+    return res.status(401).json({ error: 'account_required', action: 'menambah kenangan' });
   }
   const input = req.body && typeof req.body === 'object' ? req.body : {};
   const valid = validateMemory(input, req.now);
@@ -547,7 +547,7 @@ app.post('/api/memories', async (req, res) => {
 
   const photoUrl = photoUrlOrNull(input.photo_url);
   if (input.photo_url && !photoUrl) {
-    return res.status(400).json({ error: 'photo_invalid', message: 'That photo could not be attached. Try choosing it again.' });
+    return res.status(400).json({ error: 'photo_invalid', message: 'Foto tidak bisa dilampirkan. Coba pilih lagi.' });
   }
   const photoId = typeof input.photo_id === 'string' && input.photo_id.length <= 64 ? input.photo_id : null;
   const audioId = typeof input.audio_id === 'string' && /^[a-f0-9]{32}$/.test(input.audio_id)
@@ -567,7 +567,7 @@ app.post('/api/memories', async (req, res) => {
         await client.query('ROLLBACK');
         return res.status(400).json({
           error: 'audio_invalid',
-          message: 'The voice note could not be attached. Try recording it again.',
+          message: 'Rekaman suara tidak bisa dilampirkan. Coba rekam lagi.',
         });
       }
       audioDuration = held.rows[0].duration_ms;
@@ -616,11 +616,11 @@ app.use((err, _req, res, next) => {
   if (err.type === 'entity.too.large') {
     return res.status(413).json({
       error: 'audio_too_large',
-      message: 'That recording is too long. Keep it under two minutes.',
+      message: 'Rekaman terlalu panjang. Paling lama dua menit.',
     });
   }
   if (err.type === 'entity.parse.failed') {
-    return res.status(400).json({ error: 'body_invalid', message: 'That did not come through. Try again.' });
+    return res.status(400).json({ error: 'body_invalid', message: 'Kiriman tidak sampai. Coba lagi.' });
   }
   console.error('request failed:', err);
   return res.status(500).json({ error: 'server_error' });

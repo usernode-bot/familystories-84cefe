@@ -35,6 +35,12 @@
       "expectText": "Simpan cerita keluarga, dari generasi ke generasi"
     },
     {
+      "id": "form.add-label",
+      "name": "Adding a memory is called Tambah kenangan",
+      "path": "/",
+      "expectText": "Tambah kenangan"
+    },
+    {
       "name": "Empty screen shows the example memories",
       "path": "/?demo=1",
       "expectSelector": "[data-example]",

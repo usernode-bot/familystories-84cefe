@@ -29,12 +29,12 @@
  */
 @layer base {
   :root {
-    --ground: 250 250 249;    /* the page */
-    --surface: 255 255 255;   /* lists, cards, fields */
-    --raised: 245 245 244;    /* hovers, badges */
-    --fg: 28 25 23;           /* text */
-    --muted: 87 83 78;        /* secondary text */
-    --line: 231 229 228;      /* borders, dividers, skeletons */
+    --ground: 250 246 238;    /* the page: warm cream */
+    --surface: 255 252 245;   /* panels, cards, fields: lighter cream */
+    --raised: 244 237 226;    /* hovers, badges */
+    --fg: 43 36 28;           /* text */
+    --muted: 108 97 84;       /* secondary text */
+    --line: 233 224 210;      /* borders, dividers, skeletons */
     --accent: 30 64 175;      /* the one accent: old family-letter ink blue */
     --on-accent: 255 255 255; /* text on the accent */
     --danger: 185 28 28;
@@ -44,12 +44,12 @@
     --on-marker: 28 25 23;    /* text on the year marker */
   }
   .dark {
-    --ground: 12 10 9;
-    --surface: 28 25 23;
-    --raised: 41 37 36;
-    --fg: 245 245 244;
-    --muted: 168 162 158;
-    --line: 68 64 60;
+    --ground: 18 15 12;
+    --surface: 30 26 22;
+    --raised: 44 39 34;
+    --fg: 245 241 235;
+    --muted: 172 164 152;
+    --line: 70 63 55;
     --accent: 147 197 253;
     --on-accent: 23 37 84;
     --danger: 248 113 113;
@@ -206,8 +206,75 @@
     @apply border-accent bg-accent text-on-accent hover:bg-accent;
   }
 
+  /* A quiet, text-only action: "Batal", the date link, "Hapus tanggal",
+     "Ganti foto". Still 44 px tall, so it is easy to tap. */
+  .btn-quiet {
+    @apply inline-flex min-h-11 items-center gap-1 rounded-lg px-1 text-small font-medium text-muted
+      hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus
+      focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  /* The one big question of the form: the year, set like a date on an old
+     photograph. A field with this class keeps the input's own styling. */
+  .year-field {
+    @apply text-center font-serif text-title font-semibold tracking-wide;
+  }
+
+  /* Photo and voice note: two large tap targets with a thin-line icon. */
+  .media-button {
+    @apply flex min-h-20 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl border border-line
+      bg-surface px-3 py-2 text-small font-medium text-fg hover:bg-raised
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2
+      focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  /* A field the form is asking about again (an empty story at Save). */
+  .field[aria-invalid="true"] {
+    @apply border-danger;
+  }
+
+  /* The add-memory bottom sheet: its body scrolls, its footer (Simpan) stays
+     at the bottom of the panel. The height cap lets the sheet ride above the
+     on-screen keyboard the native kit reports in --un-kb-inset. */
+  .memory-sheet {
+    @apply flex min-h-0 flex-col;
+  }
+  .un-sheet .memory-sheet {
+    max-height: min(88dvh, calc(100dvh - var(--un-kb-inset, 0px) - 16px));
+  }
+  .sheet-head {
+    @apply flex shrink-0 items-center justify-between gap-2 px-4 pt-2 pb-1.5;
+  }
+  .sheet-body {
+    @apply flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pt-1.5 pb-4;
+    overscroll-behavior: contain;
+  }
+  .sheet-foot {
+    @apply shrink-0 border-t border-line bg-surface px-4 pt-3;
+    padding-bottom: max(0.75rem, var(--un-safe-inset-bottom, 0px));
+  }
+
+  /* The memory that was just saved: rises in, then its ink tint fades. */
+  .memory-enter {
+    border-radius: 0.5rem;
+    animation: memory-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both,
+      memory-glow 1600ms ease-out both;
+  }
+
   /* The dot that pulses while a voice note is being recorded. */
   .voice-dot {
     @apply inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-danger;
   }
+}
+
+@keyframes memory-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes memory-glow {
+  from { background-color: rgb(var(--accent) / 0.1); }
+  to { background-color: transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .memory-enter { animation: memory-glow 1600ms ease-out both; }
 }
