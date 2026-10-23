@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -111,34 +111,34 @@
   <!-- The family timeline: one shared list of dated memories, oldest first,
        built from the design kit in styles/tailwind-input.css. -->
   <main class="mx-auto flex max-w-md flex-col gap-6 px-4 py-10">
-    <header class="flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <header class="flex flex-col items-start gap-4">
       <div>
-        <h1 class="font-serif text-title">Family timeline</h1>
-        <p class="mt-1 text-body text-muted">Memories in the order they happened</p>
+        <h1 class="font-serif text-title">Simpan cerita keluarga, dari generasi ke generasi</h1>
+        <p class="mt-2 text-body text-muted">Semua cerita keluarga, tersusun rapi dari yang paling lama.</p>
       </div>
-      <button id="open-form" class="btn-primary shrink-0 whitespace-nowrap" type="button">Add a memory</button>
+      <button id="open-form" class="btn-primary" type="button">Tambah cerita</button>
     </header>
 
     <p id="announce" class="sr-only" aria-live="polite"></p>
 
     <!-- Add a memory: the only card on the page. -->
     <form id="memory-form" class="card flex flex-col gap-3" hidden>
-      <h2 class="font-serif text-heading">Add a memory</h2>
-      <label class="flex flex-col gap-1 text-small font-medium text-fg" for="title">What happened
+      <h2 class="font-serif text-heading">Tambah cerita</h2>
+      <label class="flex flex-col gap-1 text-small font-medium text-fg" for="title">Apa yang terjadi
         <input id="title" name="title" class="field font-normal" type="text" maxlength="120"
-               placeholder="e.g. Grandpa buys his first car" autocomplete="off" required>
+               placeholder="cth. Kakek membeli mobil pertamanya" autocomplete="off" required>
       </label>
-      <label class="flex flex-col gap-1 text-small font-medium text-fg" for="happened-on">When it happened
+      <label class="flex flex-col gap-1 text-small font-medium text-fg" for="happened-on">Kapan terjadinya
         <input id="happened-on" name="happened_on" class="field font-normal" type="date" required>
       </label>
-      <label class="flex flex-col gap-1 text-small font-medium text-fg" for="body">The story
+      <label class="flex flex-col gap-1 text-small font-medium text-fg" for="body">Ceritanya
         <textarea id="body" name="body" class="field min-h-28 font-normal" rows="5" maxlength="5000"
-                  placeholder="e.g. Who was there, where it was, what people still say about it" required></textarea>
+                  placeholder="cth. Siapa saja yang hadir, di mana, dan apa yang masih diceritakan orang" required></textarea>
       </label>
       <p id="form-error" class="text-small text-danger" role="alert" hidden></p>
       <div class="flex flex-wrap gap-2">
-        <button id="save" class="btn-primary" type="submit">Add memory</button>
-        <button id="cancel" class="btn-secondary" type="button">Cancel</button>
+        <button id="save" class="btn-primary" type="submit">Simpan cerita</button>
+        <button id="cancel" class="btn-secondary" type="button">Batal</button>
       </div>
     </form>
 
@@ -168,15 +168,41 @@
     </div>
 
     <div id="error" class="state-error" hidden>
-      <h2 class="font-serif text-heading">The timeline couldn't be loaded.</h2>
-      <p class="text-body text-muted">Nothing you added has been lost.</p>
-      <button id="retry" class="btn-secondary" type="button">Try again</button>
+      <h2 class="font-serif text-heading">Garis waktu tidak bisa dimuat.</h2>
+      <p class="text-body text-muted">Cerita yang sudah kamu simpan tetap aman.</p>
+      <button id="retry" class="btn-secondary" type="button">Coba lagi</button>
     </div>
 
     <div id="empty" class="state-empty" hidden>
-      <h2 class="font-serif text-heading">No memories yet</h2>
-      <p class="text-body text-muted">Add the first one: a birthday, a move, a wedding. The timeline starts there.</p>
-      <button id="empty-add" class="btn-primary" type="button">Add a memory</button>
+      <h2 class="font-serif text-heading">Belum ada cerita</h2>
+      <p class="max-w-xs text-body text-muted">Mulai dari satu momen: ulang tahun, pindah rumah, atau pernikahan.</p>
+      <button id="empty-add" class="btn-primary" type="button">Mulai cerita pertama</button>
+      <ol class="steps" aria-label="Cara menulis cerita">
+        <li>Tulis</li>
+        <li>Tambah foto</li>
+        <li>Undang keluarga</li>
+      </ol>
+
+      <!-- Three example memories, shown only until the first real one is
+           added: the empty state disappears the moment the timeline has a
+           story in it. -->
+      <div class="mt-2 w-full border-t border-line pt-5 text-left">
+        <p class="section-label">Contoh</p>
+        <ul class="flex list-none flex-col gap-2 p-0">
+          <li class="card" data-example>
+            <h3 class="font-serif text-heading">Ulang tahun Nenek</h3>
+            <p class="mt-1 text-small text-muted">Ulang tahun ke-70 di rumah, dengan kue buatan sendiri dan semua sepupu pulang.</p>
+          </li>
+          <li class="card" data-example>
+            <h3 class="font-serif text-heading">Pindah ke rumah baru</h3>
+            <p class="mt-1 text-small text-muted">Semua barang masuk satu mobil, dan kucing ikut duduk di kursi depan sepanjang jalan.</p>
+          </li>
+          <li class="card" data-example>
+            <h3 class="font-serif text-heading">Pernikahan Ayah-Ibu</h3>
+            <p class="mt-1 text-small text-muted">Upacara sederhana di halaman rumah, dengan tetangga yang memasak untuk semua tamu.</p>
+          </li>
+        </ul>
+      </div>
     </div>
 
     <ol id="timeline" class="timeline" hidden></ol>
@@ -186,6 +212,9 @@
     (function () {
       var params = new URLSearchParams(location.search);
       var token = params.get('token');
+      // Staging only: ask the API for the timeline without its seeded demo
+      // rows, so the empty first screen can be seen in a preview.
+      var demo = params.get('demo') === '1';
       var signedIn = true;
       var memories = [];
       var form = document.getElementById('memory-form');
@@ -232,7 +261,7 @@
       function formatDate(iso) {
         var parts = iso.split('-');
         var date = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])));
-        return new Intl.DateTimeFormat(undefined, {
+        return new Intl.DateTimeFormat('id-ID', {
           day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
         }).format(date);
       }
@@ -256,7 +285,7 @@
 
         var author = document.createElement('p');
         author.className = 'text-small text-muted';
-        author.textContent = 'Added by ' + memory.username;
+        author.textContent = 'Ditambahkan oleh ' + memory.username;
 
         item.appendChild(date);
         item.appendChild(title);
@@ -294,7 +323,7 @@
       function load() {
         show('loading');
         openButton.hidden = false;
-        request('GET', '/api/memories')
+        request('GET', '/api/memories' + (demo ? '?demo=1' : ''))
           .then(function (response) {
             if (!response.ok) throw new Error('load_failed');
             return response.json();
@@ -375,12 +404,12 @@
               saveButton.disabled = false;
               return;
             }
-            formError.textContent = "Your memory wasn't saved. Check your connection and try again.";
+            formError.textContent = "Ceritamu belum tersimpan. Periksa koneksi lalu coba lagi.";
             formError.hidden = false;
             saveButton.disabled = false;
           })
           .catch(function () {
-            formError.textContent = "Your memory wasn't saved. Check your connection and try again.";
+            formError.textContent = "Ceritamu belum tersimpan. Periksa koneksi lalu coba lagi.";
             formError.hidden = false;
             saveButton.disabled = false;
           });
@@ -397,7 +426,7 @@
         hideForm();
         form.reset();
         saveButton.disabled = false;
-        announce.textContent = 'Memory added';
+        announce.textContent = 'Cerita tersimpan';
         var element = timeline.querySelector('[data-memory="' + memory.id + '"]');
         if (element) {
           element.scrollIntoView({ block: 'center' });
